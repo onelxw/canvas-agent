@@ -1,0 +1,30 @@
+---
+title: Built-in Canvas Agent
+description: Protocol, Tool Loop, permissions, revision safety, and local persistence
+---
+
+# Built-in Canvas Agent
+
+The right-side Canvas Agent runs directly in the Infinite Canvas frontend. It uses the endpoint, API key, text model, and independent Agent protocol of the selected model provider, without requiring Codex, MCP, or a local Canvas Agent service.
+
+## Protocol and execution
+
+Each provider can select either the Responses API or Chat Completions. Both adapters normalize streaming text, tool calls, usage, and errors into one shared Tool Loop. A protocol error never triggers automatic fallback, preventing duplicate requests and charges.
+
+The loop performs model streaming, whitelist checks, strict Zod validation, permission and confirmation checks, canvas execution, and tool-result feedback. Defaults are 12 model rounds, 8 tool calls per round, 32 total tool calls, 50 canvas operations, and 50 affected nodes per operation.
+
+## Canvas consistency
+
+Every write or generation call must include the current `projectId` and `expectedRevision`. A project switch or intervening canvas change rejects the stale call and makes the model read state again. Agent writes use the canvas's existing React state and normal history, so they participate in standard undo.
+
+## Permissions and security
+
+Only a fixed tool registry is exposed. Read, canvas-write, and generation permissions are separate. Reads are enabled by default; writes and generation are allowed but require confirmation by default, with independent auto-confirm options. No configuration mutation, arbitrary network, script execution, or custom URL tool is exposed.
+
+API keys are only placed in request headers. They are not added to model context, tool results, or Agent logs. Tool results redact secret-shaped fields and enforce length limits. Exported configuration excludes provider API keys and the WebDAV password by default.
+
+## Local data
+
+Messages, permissions, and limits are persisted in IndexedDB with independent storage and protocol versions. Abort controllers, confirmation callbacks, and live canvas handles remain memory-only. Refreshing or restarting marks an unfinished request as interrupted.
+
+The legacy local Agent, MCP, and Codex implementation remains in the repository during migration. It should only be removed after manual acceptance and explicit user confirmation.
