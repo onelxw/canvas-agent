@@ -23,6 +23,7 @@ export async function* readSseJson(response: Response): AsyncGenerator<SseJsonEv
         const parsed = parseSseBlock(buffer);
         if (parsed) yield parsed;
     } finally {
+        await reader.cancel().catch(() => undefined);
         reader.releaseLock();
     }
 }

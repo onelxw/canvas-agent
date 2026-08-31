@@ -71,6 +71,7 @@ export type InternalAgentMessage = {
     text: string;
     toolCallId?: string;
     toolName?: string;
+    toolCalls?: InternalAgentToolCall[];
     createdAt: string;
 };
 

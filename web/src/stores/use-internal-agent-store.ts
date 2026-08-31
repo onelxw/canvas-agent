@@ -82,6 +82,7 @@ export const useInternalAgentStore = create<InternalAgentStore>()(
                     text: value.text,
                     toolCallId: value.toolCallId,
                     toolName: value.toolName,
+                    toolCalls: value.toolCalls,
                     createdAt: value.createdAt || new Date().toISOString(),
                 };
                 set((state) => ({ messages: [...state.messages, message] }));
