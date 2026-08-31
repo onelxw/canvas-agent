@@ -236,6 +236,17 @@
         width: 4px;
     }
 
+    .thin-scrollbar::-webkit-scrollbar-button {
+        display: none;
+        height: 0;
+        width: 0;
+    }
+
+    .thin-scrollbar::-webkit-scrollbar-corner,
+    .thin-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
     .thin-scrollbar::-webkit-scrollbar-thumb {
         background: rgba(120, 113, 108, 0.45);
         border-radius: 999px;

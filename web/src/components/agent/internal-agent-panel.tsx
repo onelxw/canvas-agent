@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Alert, App, Button, Empty, Popover, Switch, Tooltip } from "antd";
-import { Bot, CircleStop, PanelRightClose, Plus, Send, Settings2, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Bot, CheckCircle2, ChevronRight, CircleStop, LoaderCircle, PanelRightClose, Plus, Send, Settings2, SlidersHorizontal, Trash2, Wrench, XCircle } from "lucide-react";
 import { nanoid } from "nanoid";
 
 import { runInternalAgent, createInternalAgentToolExecutor, type InternalAgentConfirmation } from "@/lib/internal-agent";
@@ -39,6 +39,7 @@ export function InternalAgentPanel() {
     } = useInternalAgentStore();
     const running = runState === "running";
     const requestConfig = useMemo(() => resolveModelRequestConfig(config, config.textModel), [config]);
+    const toolNames = useMemo(() => new Map(messages.flatMap((item) => (item.toolCalls || []).map((call) => [call.id, call.name] as const))), [messages]);
 
     const settleConfirmation = (result: InternalAgentConfirmation) => {
         confirmationRef.current?.(result);
@@ -147,12 +148,12 @@ export function InternalAgentPanel() {
                 <Tooltip title="收起"><Button size="small" type="text" aria-label="收起 Agent" icon={<PanelRightClose className="size-4" />} onClick={closePanel} /></Tooltip>
             </header>
 
-            <main className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+            <main className="thin-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4">
                 {!messages.length ? (
                     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={canvasContext ? "告诉我你想如何编辑当前画布" : "打开一个画布后即可读取和编辑节点"} />
                 ) : (
                     <div className="space-y-3">
-                        {messages.map((item) => <MessageBubble key={item.id} item={item} />)}
+                        {messages.map((item) => <MessageBubble key={item.id} item={item} toolName={item.toolName || (item.toolCallId ? toolNames.get(item.toolCallId) : undefined)} />)}
                     </div>
                 )}
                 {error && runState !== "idle" && !(messages.at(-1)?.role === "error" && messages.at(-1)?.text === error) ? <Alert className="mt-3" type={runState === "interrupted" ? "warning" : "error"} showIcon message={error} /> : null}
@@ -162,7 +163,7 @@ export function InternalAgentPanel() {
             {pendingConfirmation ? (
                 <div className="mx-3 mb-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-stone-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-stone-100">
                     <div className="text-sm font-semibold">确认执行：{pendingConfirmation.call.name}</div>
-                    <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs opacity-75">{JSON.stringify(pendingConfirmation.input, null, 2)}</pre>
+                    <pre className="thin-scrollbar mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs opacity-75">{JSON.stringify(pendingConfirmation.input, null, 2)}</pre>
                     <div className="mt-3 flex justify-end gap-2">
                         <Button size="small" onClick={() => settleConfirmation({ approved: false, reason: "用户拒绝" })}>拒绝</Button>
                         <Button size="small" type="primary" onClick={() => settleConfirmation({ approved: true })}>允许本次</Button>
@@ -197,14 +198,39 @@ export function InternalAgentPanel() {
     );
 }
 
-function MessageBubble({ item }: { item: InternalAgentMessage }) {
+function MessageBubble({ item, toolName }: { item: InternalAgentMessage; toolName?: string }) {
     const isUser = item.role === "user";
     const isTool = item.role === "tool";
+    if (isTool) return <ToolProcessCard item={item} toolName={toolName} />;
     return (
         <div className={isUser ? "flex justify-end" : "flex justify-start"}>
-            <div className={isUser ? "max-w-[88%] rounded-2xl rounded-br-md bg-blue-600 px-3 py-2 text-sm text-white" : isTool ? "max-w-full rounded-lg bg-stone-100 px-3 py-2 text-xs text-stone-600 dark:bg-stone-800 dark:text-stone-300" : item.role === "error" ? "max-w-[92%] rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300" : "max-w-[92%] whitespace-pre-wrap text-sm leading-6"}>
+            <div className={isUser ? "max-w-[88%] break-words rounded-2xl rounded-br-md bg-blue-600 px-3 py-2 text-sm text-white" : item.role === "error" ? "max-w-[92%] break-words rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300" : "max-w-[92%] whitespace-pre-wrap break-words text-sm leading-6"}>
                 {item.text || (item.role === "assistant" ? "思考中…" : "")}
             </div>
+        </div>
+    );
+}
+
+function ToolProcessCard({ item, toolName }: { item: InternalAgentMessage; toolName?: string }) {
+    const result = parseToolResult(item.text);
+    const pending = item.text.startsWith("正在执行");
+    const failed = result?.ok === false;
+    const label = pending ? `正在${toolLabel(toolName)}` : toolResultSummary(toolName, result, item.text);
+    const Icon = pending ? LoaderCircle : failed ? XCircle : CheckCircle2;
+    return (
+        <div className="flex min-w-0 justify-start">
+            <details className="group w-full min-w-0 overflow-hidden rounded-xl bg-stone-100/80 text-stone-600 dark:bg-stone-800/70 dark:text-stone-300">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs [&::-webkit-details-marker]:hidden">
+                    <Icon className={`size-3.5 shrink-0 ${pending ? "animate-spin" : failed ? "text-red-500" : "text-emerald-500"}`} />
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <span className="shrink-0 text-[11px] opacity-55">{pending ? "处理中" : "查看详情"}</span>
+                    <ChevronRight className="size-3.5 shrink-0 opacity-45 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="border-t border-stone-200/70 px-3 py-2 dark:border-stone-700/70">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[11px] opacity-60"><Wrench className="size-3" />{toolName || "画布工具"}</div>
+                    <pre className="thin-scrollbar max-h-56 max-w-full overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-5">{formatToolDetail(item.text)}</pre>
+                </div>
+            </details>
         </div>
     );
 }
@@ -241,6 +267,7 @@ function storedToTransport(systemPrompt: string, messages: InternalAgentMessage[
 }
 
 function transportToStored(messages: InternalAgentTransportMessage[], threadId: string, turnId: string): InternalAgentMessage[] {
+    const toolNames = new Map(messages.flatMap((item) => (item.toolCalls || []).map((call) => [call.id, call.name] as const)));
     return messages.filter((item) => item.role !== "system").map((item) => ({
         id: nanoid(),
         itemId: nanoid(),
@@ -250,9 +277,67 @@ function transportToStored(messages: InternalAgentTransportMessage[], threadId: 
         text: item.content,
         toolCallId: item.toolCallId,
         toolCalls: item.toolCalls,
-        toolName: item.toolCalls?.[0]?.name,
+        toolName: item.role === "tool" && item.toolCallId ? toolNames.get(item.toolCallId) : item.toolCalls?.[0]?.name,
         createdAt: new Date().toISOString(),
     }));
+}
+
+type ToolResult = { ok?: boolean; error?: string; data?: Record<string, unknown> };
+
+function parseToolResult(text: string): ToolResult | null {
+    try {
+        const value = JSON.parse(text) as unknown;
+        return value && typeof value === "object" && !Array.isArray(value) ? value as ToolResult : null;
+    } catch {
+        return null;
+    }
+}
+
+function toolResultSummary(name: string | undefined, result: ToolResult | null, fallback: string) {
+    if (result?.ok === false) return `${toolLabel(name)}失败：${result.error || "未执行"}`;
+    const data = result?.data || {};
+    if (name === "canvas_get_state") {
+        const nodes = Array.isArray(data.nodes) ? data.nodes.length : 0;
+        const connections = Array.isArray(data.connections) ? data.connections.length : 0;
+        return `已读取画布 · ${nodes} 个节点 · ${connections} 条连线`;
+    }
+    if (name === "canvas_get_selection") return `已读取选区 · ${Array.isArray(data.nodes) ? data.nodes.length : 0} 个节点`;
+    if (name === "generation_get_status") return `已查询生成状态 · ${Array.isArray(data.nodes) ? data.nodes.length : 0} 个节点`;
+    if (data.applied === true) {
+        const count = typeof data.operationCount === "number" ? ` · ${data.operationCount} 项操作` : "";
+        const revision = typeof data.revision === "number" ? ` · revision ${data.revision}` : "";
+        return `${toolLabel(name)}已完成${count}${revision}`;
+    }
+    if (data.accepted === true) return `${toolLabel(name)}已提交`;
+    return result?.ok === true ? `${toolLabel(name)}已完成` : fallback;
+}
+
+function toolLabel(name?: string) {
+    const labels: Record<string, string> = {
+        canvas_get_state: "读取画布",
+        canvas_get_selection: "读取选区",
+        canvas_apply_ops: "修改画布",
+        canvas_create_text_nodes: "创建文本节点",
+        canvas_create_generation_flow: "创建生成流程",
+        canvas_update_node: "更新节点",
+        canvas_move_nodes: "移动节点",
+        canvas_resize_node: "调整节点尺寸",
+        canvas_delete_nodes: "删除节点",
+        canvas_connect_nodes: "连接节点",
+        canvas_select_nodes: "选择节点",
+        canvas_set_viewport: "调整视口",
+        canvas_run_generation: "运行生成",
+        generation_get_status: "查询生成状态",
+    };
+    return name ? labels[name] || name : "处理画布";
+}
+
+function formatToolDetail(text: string) {
+    try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+        return text;
+    }
 }
 
 function toolResultLabel(call: InternalAgentToolCall, result: string, executed: boolean) {

@@ -7,6 +7,7 @@ description: Implemented changes that still need manual verification
 
 The current release needs manual verification in these areas:
 
+- Built-in Canvas Agent tool activity: completed read, write, delete, and generation calls should collapse to a one-line summary instead of exposing raw JSON in the conversation. “View details” should expand and collapse formatted results, long content must not create page-level horizontal overflow, and both panel and detail scrollbars should be thin, borderless, and arrowless.
 - Built-in Canvas Agent: without starting Canvas Agent, Codex, or MCP, the right panel should use the configured text model. Responses and Chat Completions providers should each stream text, read canvas state, modify a node, and continue after tool output. Protocol errors must not auto-fallback.
 - Built-in Agent safety and consistency: canvas writes and generation should prompt independently by default; rejection must prevent execution. Project switches or manual edits before confirmation must trigger project/revision conflicts. Stop and refresh must prevent further tool execution, while duplicate call IDs, unregistered tools, extra parameters, and oversized batches are rejected.
 - Built-in Agent local data: completed messages and permissions should restore from IndexedDB after refresh, running requests should become interrupted, and exported configuration must exclude provider API keys and the WebDAV password.
