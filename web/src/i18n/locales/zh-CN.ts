@@ -483,6 +483,8 @@ export default {
             title: "编辑渠道",
             name: "渠道名称",
             protocol: "协议",
+            agentProtocol: "画布 Agent 协议",
+            agentProtocolDescription: "仅用于内置画布 Agent；协议失败时不会自动回退，避免重复请求和计费。",
             baseUrl: "接口地址",
             models: "渠道模型",
             modelDescription: "已选 {{count}} 个；为每个模型指定能力并可自定义调用脚本。",

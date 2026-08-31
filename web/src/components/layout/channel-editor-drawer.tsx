@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { defaultBaseUrlForApiFormat, guessCapability, normalizeChannelModels, type ApiCallFormat, type ChannelModel, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import type { InternalAgentProtocol } from "@/lib/internal-agent/types";
 import { ModelScriptEditor } from "./model-script-editor";
 import { ModelSelectModal } from "./model-select-modal";
 
@@ -19,6 +20,10 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
         { label: "Gemini", value: "gemini" },
     ];
     const capabilityOptions: Array<{ label: string; value: ModelCapability }> = ["image", "video", "text", "audio"].map((value) => ({ label: t(`config.channelEditor.capabilities.${value}`), value: value as ModelCapability }));
+    const agentProtocolOptions: Array<{ label: string; value: InternalAgentProtocol }> = [
+        { label: "Responses API", value: "openai-responses" },
+        { label: "Chat Completions", value: "openai-chat-completions" },
+    ];
 
     useEffect(() => {
         if (open && channel) setDraft(channel);
@@ -72,6 +77,11 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 <label className="block">
                     <span className="mb-1 block text-sm font-medium">{t("config.channelEditor.protocol")}</span>
                     <Select className="w-full" value={draft.apiFormat} options={apiFormatOptions} onChange={changeApiFormat} />
+                </label>
+                <label className="block md:col-span-2">
+                    <span className="mb-1 block text-sm font-medium">{t("config.channelEditor.agentProtocol")}</span>
+                    <Select className="w-full" value={draft.agentProtocol} options={agentProtocolOptions} onChange={(agentProtocol) => patch({ agentProtocol })} />
+                    <span className="mt-1 block text-xs text-stone-500">{t("config.channelEditor.agentProtocolDescription")}</span>
                 </label>
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">{t("config.channelEditor.baseUrl")}</span>

@@ -483,6 +483,8 @@ export default {
             title: "Edit provider",
             name: "Provider name",
             protocol: "Protocol",
+            agentProtocol: "Canvas Agent protocol",
+            agentProtocolDescription: "Used only by the built-in Canvas Agent. Protocol errors do not auto-fallback, preventing duplicate requests and charges.",
             baseUrl: "API endpoint",
             models: "Provider models",
             modelDescription: "{{count}} selected; assign a capability to each model and optionally customize its request script.",

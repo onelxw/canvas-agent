@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
 import i18n from "@/i18n";
+import type { InternalAgentProtocol } from "@/lib/internal-agent/types";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
@@ -21,6 +22,7 @@ export type ModelChannel = {
     baseUrl: string;
     apiKey: string;
     apiFormat: ApiCallFormat;
+    agentProtocol: InternalAgentProtocol;
     models: ChannelModel[];
 };
 
@@ -79,6 +81,7 @@ export const defaultConfig: AiConfig = {
             baseUrl: OPENAI_BASE_URL,
             apiKey: "",
             apiFormat: "openai",
+            agentProtocol: "openai-responses",
             models: [
                 { name: "gpt-image-2", capability: "image" },
                 { name: "grok-imagine-video", capability: "video" },
@@ -285,6 +288,7 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
         baseUrl: channel?.baseUrl?.trim() || defaultBaseUrlForApiFormat(apiFormat),
         apiKey: channel?.apiKey || "",
         apiFormat,
+        agentProtocol: normalizeAgentProtocol(channel?.agentProtocol),
         models: normalizeChannelModels(channel?.models),
     };
 }
@@ -345,6 +349,7 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
         baseUrl: channel.baseUrl,
         apiKey: channel.apiKey,
         apiFormat: channel.apiFormat,
+        agentProtocol: channel.agentProtocol,
     };
 }
 
@@ -380,6 +385,10 @@ export function defaultBaseUrlForApiFormat(apiFormat: ApiCallFormat) {
 
 function normalizeApiFormat(apiFormat: unknown): ApiCallFormat {
     return apiFormat === "gemini" ? apiFormat : "openai";
+}
+
+function normalizeAgentProtocol(protocol: unknown): InternalAgentProtocol {
+    return protocol === "openai-chat-completions" ? protocol : "openai-responses";
 }
 
 function uniqueModelOptions(models: string[]) {
