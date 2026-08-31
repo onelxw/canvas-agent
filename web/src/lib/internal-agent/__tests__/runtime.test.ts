@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_INTERNAL_AGENT_LIMITS, DEFAULT_INTERNAL_AGENT_PERMISSIONS } from "../types";
 import { runInternalAgent } from "../runtime";
-import { parseInternalAgentToolInput } from "../tools/registry";
+import { internalAgentModelTools, parseInternalAgentToolInput } from "../tools/registry";
 import { internalAgentToolNames } from "../tools/schemas";
 
 const toolContext = { hasCanvas: true, projectId: "project-1", permissions: DEFAULT_INTERNAL_AGENT_PERMISSIONS };
@@ -23,6 +23,13 @@ describe("internal Agent registry", () => {
         expect(() => parseInternalAgentToolInput("canvas_apply_ops", {
             projectId: "project-1", expectedRevision: 1, ops: [{ type: "run_generation", nodeId: "n1" }],
         })).toThrow();
+    });
+
+    it("emits JSON Schema numeric exclusive bounds for model providers", () => {
+        const schemas = internalAgentModelTools(toolContext).map((tool) => JSON.stringify(tool.parameters));
+        expect(schemas.some((schema) => schema.includes('"exclusiveMinimum":0'))).toBe(true);
+        expect(schemas.every((schema) => !schema.includes('"exclusiveMinimum":true'))).toBe(true);
+        expect(schemas.every((schema) => !schema.includes('"$schema"'))).toBe(true);
     });
 });
 

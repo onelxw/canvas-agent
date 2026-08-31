@@ -80,7 +80,6 @@ export type InternalAgentToolDefinition = {
     name: string;
     description: string;
     parameters: Record<string, unknown>;
-    strict: true;
 };
 
 export type InternalAgentCanvasSnapshot = {

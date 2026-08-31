@@ -65,9 +65,14 @@ export function internalAgentModelTools(context: InternalAgentToolContext): Inte
         type: "function",
         name: tool.name,
         description: tool.description,
-        parameters: zodToJsonSchema(tool.schema, { target: "openApi3", $refStrategy: "none" }) as Record<string, unknown>,
-        strict: true,
+        parameters: modelJsonSchema(tool.schema),
     }));
+}
+
+function modelJsonSchema(schema: InternalAgentRegisteredTool["schema"]): Record<string, unknown> {
+    const converted = zodToJsonSchema(schema, { target: "jsonSchema7", $refStrategy: "none" }) as Record<string, unknown>;
+    const { $schema: _schemaVersion, definitions: _definitions, ...parameters } = converted;
+    return parameters;
 }
 
 export function internalAgentToolNeedsConfirmation(name: InternalAgentToolName, settings: InternalAgentPermissionSettings) {

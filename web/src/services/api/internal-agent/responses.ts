@@ -7,8 +7,7 @@ export async function* streamResponsesAgent(request: InternalAgentModelRequest):
     const response = await modelFetch(buildApiUrl(request.baseUrl, "/responses"), request.apiKey, {
         model: request.model,
         input: responsesInput(request.messages),
-        tools: request.tools,
-        tool_choice: "auto",
+        ...(request.tools.length ? { tools: request.tools, tool_choice: "auto" } : {}),
         stream: true,
     }, request.signal);
     const calls = new Map<string, InternalAgentToolCall>();

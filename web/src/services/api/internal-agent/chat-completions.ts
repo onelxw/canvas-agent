@@ -4,13 +4,12 @@ import type { InternalAgentModelRequest, InternalAgentTransportMessage } from ".
 import { apiErrorMessage, asRecord, modelFetch, numberValue, readSseJson, stringValue } from "./sse";
 
 export async function* streamChatCompletionsAgent(request: InternalAgentModelRequest): AsyncGenerator<InternalAgentModelEvent> {
+    const tools = request.tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.parameters } }));
     const response = await modelFetch(buildApiUrl(request.baseUrl, "/chat/completions"), request.apiKey, {
         model: request.model,
         messages: chatMessages(request.messages),
-        tools: request.tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.parameters, strict: tool.strict } })),
-        tool_choice: "auto",
+        ...(tools.length ? { tools, tool_choice: "auto" } : {}),
         stream: true,
-        stream_options: { include_usage: true },
     }, request.signal);
     const calls = new Map<number, InternalAgentToolCall>();
     let completed = false;

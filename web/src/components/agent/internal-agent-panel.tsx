@@ -155,7 +155,7 @@ export function InternalAgentPanel() {
                         {messages.map((item) => <MessageBubble key={item.id} item={item} />)}
                     </div>
                 )}
-                {error && runState !== "idle" ? <Alert className="mt-3" type={runState === "interrupted" ? "warning" : "error"} showIcon message={error} /> : null}
+                {error && runState !== "idle" && !(messages.at(-1)?.role === "error" && messages.at(-1)?.text === error) ? <Alert className="mt-3" type={runState === "interrupted" ? "warning" : "error"} showIcon message={error} /> : null}
                 <div ref={bottomRef} />
             </main>
 

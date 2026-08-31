@@ -2,6 +2,7 @@
 
 ## Unreleased
 
++ [修复] 内置画布 Agent 工具参数改用 JSON Schema Draft 7，避免 OpenAPI 3 的布尔型 `exclusiveMinimum` 被上游拒绝；同时不再发送带可选字段的 provider strict Schema、空工具参数或强制用量流选项，修复部分兼容接口已计费但返回 upstream failure 的问题，本地白名单与 Zod 严格校验保持不变。
 + [新增] 右侧画布 Agent 改为应用内置运行，直接使用已配置的文本模型渠道，支持 OpenAI Responses 与 Chat Completions 流式工具调用，无需 Codex、MCP 或本地 Canvas Agent。
 + [新增] 内置画布 Agent 提供固定白名单、严格参数校验、项目与 revision 冲突保护、独立读写/生成权限、逐次确认和可中断的多轮 Tool Loop。
 + [新增] 内置画布 Agent 会话、权限和限制使用 IndexedDB 持久化；刷新时运行中任务会标记为已中断，默认限制为 12 轮、单轮 8 次及总计 32 次工具调用。

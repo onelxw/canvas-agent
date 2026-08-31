@@ -26,6 +26,8 @@ describe("internal Agent protocol adapters", () => {
         expect(events).toContainEqual({ type: "text_delta", delta: "hello" });
         expect(events).toContainEqual({ type: "tool_call", call: { id: "c1", name: "canvas_get_state", arguments: "{}" } });
         expect(events.at(-1)).toEqual({ type: "done", responseId: "r1" });
+        expect(requestBody()).not.toHaveProperty("tools");
+        expect(requestBody()).not.toHaveProperty("tool_choice");
     });
 
     it("joins fragmented Chat Completions tool arguments", async () => {
@@ -36,6 +38,19 @@ describe("internal Agent protocol adapters", () => {
         const events = await collect(streamChatCompletionsAgent({ ...baseRequest, protocol: "openai-chat-completions" }));
         expect(events).toContainEqual({ type: "tool_call", call: { id: "c2", name: "canvas_get_state", arguments: "{}" } });
         expect(events.at(-1)).toEqual({ type: "done" });
+        expect(requestBody()).not.toHaveProperty("stream_options");
+    });
+
+    it("does not send provider strict mode while retaining JSON schemas", async () => {
+        stubSse([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }]);
+        await collect(streamChatCompletionsAgent({
+            ...baseRequest,
+            protocol: "openai-chat-completions",
+            tools: [{ type: "function", name: "canvas_get_state", description: "read", parameters: { type: "object", properties: {}, additionalProperties: false } }],
+        }));
+        const tool = (requestBody().tools as Array<{ function: Record<string, unknown> }>)[0];
+        expect(tool.function).not.toHaveProperty("strict");
+        expect(tool.function.parameters).toEqual({ type: "object", properties: {}, additionalProperties: false });
     });
 });
 
@@ -48,4 +63,10 @@ async function collect<T>(stream: AsyncGenerator<T>) {
     const result: T[] = [];
     for await (const item of stream) result.push(item);
     return result;
+}
+
+function requestBody() {
+    const fetchMock = vi.mocked(fetch);
+    const init = fetchMock.mock.calls.at(-1)?.[1] as RequestInit;
+    return JSON.parse(String(init.body)) as Record<string, unknown>;
 }
