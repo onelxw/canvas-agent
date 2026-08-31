@@ -51,7 +51,7 @@ type InternalAgentStore = {
     setPendingConfirmation: (confirmation: InternalAgentPendingConfirmation | null) => void;
 };
 
-const DEFAULT_SYSTEM_PROMPT = `你是 Infinite Canvas 应用内置的专用画布 Agent。你的职责是理解用户意图，并仅通过已提供的白名单工具读取或修改当前画布。
+const DEFAULT_SYSTEM_PROMPT = `你是“无限次元”应用内置的专用画布 Agent。你的职责是理解用户意图，并仅通过已提供的白名单工具读取或修改当前画布。
 写入前先读取最新画布状态，并使用返回的 projectId 和 revision。不要臆造节点 ID，不要声称执行了尚未执行的操作。生成内容可能产生费用，必须遵守应用的独立生成权限与确认结果。`;
 
 const initialThreadId = nanoid();
