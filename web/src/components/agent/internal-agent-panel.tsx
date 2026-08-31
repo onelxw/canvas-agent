@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from "react";
-import { Alert, App, Button, Empty, Popover, Switch, Tooltip } from "antd";
-import { Bot, CheckCircle2, ChevronRight, CircleStop, LoaderCircle, PanelRightClose, Plus, Send, Settings2, SlidersHorizontal, Trash2, Wrench, XCircle } from "lucide-react";
+import { Alert, App, Button, Empty, Popconfirm, Popover, Switch, Tooltip } from "antd";
+import { Bot, CheckCircle2, ChevronRight, CircleStop, History, LoaderCircle, MessageSquareText, PanelRightClose, Plus, Send, Settings2, SlidersHorizontal, Trash2, Wrench, XCircle } from "lucide-react";
 import { nanoid } from "nanoid";
 
 import { runInternalAgent, createInternalAgentToolExecutor, type InternalAgentConfirmation } from "@/lib/internal-agent";
 import { streamInternalAgentModel, testInternalAgentConnection, type InternalAgentTransportMessage } from "@/services/api/internal-agent";
 import { resolveModelRequestConfig, useConfigStore } from "@/stores/use-config-store";
-import { abortInternalAgentRun, replaceInternalAgentController, useInternalAgentStore } from "@/stores/use-internal-agent-store";
+import { abortInternalAgentRun, replaceInternalAgentController, useInternalAgentStore, type InternalAgentThread } from "@/stores/use-internal-agent-store";
 import { useAgentStore } from "@/stores/use-agent-store";
 import type { InternalAgentMessage, InternalAgentToolCall } from "@/lib/internal-agent/types";
 
@@ -14,6 +14,7 @@ export function InternalAgentPanel() {
     const { message } = App.useApp();
     const [prompt, setPrompt] = useState("");
     const [testing, setTesting] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const confirmationRef = useRef<((result: InternalAgentConfirmation) => void) | null>(null);
     const closePanel = useAgentStore((state) => state.closePanel);
@@ -21,6 +22,8 @@ export function InternalAgentPanel() {
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const {
         messages,
+        threads,
+        activeThreadId,
         permissions,
         limits,
         systemPrompt,
@@ -35,11 +38,25 @@ export function InternalAgentPanel() {
         setRunState,
         setPendingConfirmation,
         newConversation,
+        selectConversation,
+        deleteConversation,
         clearConversation,
     } = useInternalAgentStore();
     const running = runState === "running";
     const requestConfig = useMemo(() => resolveModelRequestConfig(config, config.textModel), [config]);
     const toolNames = useMemo(() => new Map(messages.flatMap((item) => (item.toolCalls || []).map((call) => [call.id, call.name] as const))), [messages]);
+    const visibleMessages = useMemo(() => messages.filter((item, index) => item.role !== "assistant" || item.text || (running && index === messages.length - 1)), [messages, running]);
+
+    const startConversation = () => {
+        newConversation();
+        setPrompt("");
+    };
+
+    const openConversation = (threadId: string) => {
+        selectConversation(threadId);
+        setPrompt("");
+        setHistoryOpen(false);
+    };
 
     const settleConfirmation = (result: InternalAgentConfirmation) => {
         confirmationRef.current?.(result);
@@ -141,7 +158,10 @@ export function InternalAgentPanel() {
                     <div className="truncate text-sm font-semibold">画布 Agent</div>
                     <div className="truncate text-[11px] text-stone-500">{requestConfig.model || "未配置文本模型"} · {requestConfig.agentProtocol === "openai-responses" ? "Responses" : "Chat Completions"}</div>
                 </div>
-                <Tooltip title="新对话"><Button size="small" type="text" aria-label="新对话" icon={<Plus className="size-4" />} onClick={newConversation} disabled={running} /></Tooltip>
+                <Popover open={historyOpen} onOpenChange={setHistoryOpen} trigger="click" placement="bottomRight" content={<ConversationHistory threads={threads} activeThreadId={activeThreadId} running={running} onSelect={openConversation} onDelete={deleteConversation} />}>
+                    <Button size="small" type="text" aria-label="对话历史" title="对话历史" icon={<History className="size-4" />} />
+                </Popover>
+                <Tooltip title="新对话"><Button size="small" type="text" aria-label="新对话" icon={<Plus className="size-4" />} onClick={startConversation} disabled={running} /></Tooltip>
                 <Popover trigger="click" placement="bottomRight" content={<PermissionSettings permissions={permissions} onChange={setPermissions} onOpenConfig={() => openConfigDialog(false, "channels")} onTest={() => void testConnection()} testing={testing} />}>
                     <Button size="small" type="text" aria-label="Agent 设置" icon={<Settings2 className="size-4" />} />
                 </Popover>
@@ -153,7 +173,7 @@ export function InternalAgentPanel() {
                     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={canvasContext ? "告诉我你想如何编辑当前画布" : "打开一个画布后即可读取和编辑节点"} />
                 ) : (
                     <div className="space-y-3">
-                        {messages.map((item) => <MessageBubble key={item.id} item={item} toolName={item.toolName || (item.toolCallId ? toolNames.get(item.toolCallId) : undefined)} />)}
+                        {visibleMessages.map((item, index) => <MessageBubble key={item.id} item={item} thinking={running && index === visibleMessages.length - 1 && item.role === "assistant" && !item.text} toolName={item.toolName || (item.toolCallId ? toolNames.get(item.toolCallId) : undefined)} />)}
                     </div>
                 )}
                 {error && runState !== "idle" && !(messages.at(-1)?.role === "error" && messages.at(-1)?.text === error) ? <Alert className="mt-3" type={runState === "interrupted" ? "warning" : "error"} showIcon message={error} /> : null}
@@ -198,14 +218,15 @@ export function InternalAgentPanel() {
     );
 }
 
-function MessageBubble({ item, toolName }: { item: InternalAgentMessage; toolName?: string }) {
+function MessageBubble({ item, toolName, thinking = false }: { item: InternalAgentMessage; toolName?: string; thinking?: boolean }) {
     const isUser = item.role === "user";
     const isTool = item.role === "tool";
     if (isTool) return <ToolProcessCard item={item} toolName={toolName} />;
+    if (item.role === "assistant" && !item.text && !thinking) return null;
     return (
         <div className={isUser ? "flex justify-end" : "flex justify-start"}>
             <div className={isUser ? "max-w-[88%] break-words rounded-2xl rounded-br-md bg-blue-600 px-3 py-2 text-sm text-white" : item.role === "error" ? "max-w-[92%] break-words rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300" : "max-w-[92%] whitespace-pre-wrap break-words text-sm leading-6"}>
-                {item.text || (item.role === "assistant" ? "思考中…" : "")}
+                {item.text || (thinking ? "思考中…" : "")}
             </div>
         </div>
     );
@@ -220,11 +241,13 @@ function ToolProcessCard({ item, toolName }: { item: InternalAgentMessage; toolN
     return (
         <div className="flex min-w-0 justify-start">
             <details className="group w-full min-w-0 overflow-hidden rounded-xl bg-stone-100/80 text-stone-600 dark:bg-stone-800/70 dark:text-stone-300">
-                <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs [&::-webkit-details-marker]:hidden">
-                    <Icon className={`size-3.5 shrink-0 ${pending ? "animate-spin" : failed ? "text-red-500" : "text-emerald-500"}`} />
-                    <span className="min-w-0 flex-1 truncate">{label}</span>
-                    <span className="shrink-0 text-[11px] opacity-55">{pending ? "处理中" : "查看详情"}</span>
-                    <ChevronRight className="size-3.5 shrink-0 opacity-45 transition-transform group-open:rotate-90" />
+                <summary className="cursor-pointer list-none px-3 py-2 text-xs [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 items-center gap-2">
+                        <Icon className={`size-3.5 shrink-0 ${pending ? "animate-spin" : failed ? "text-red-500" : "text-emerald-500"}`} />
+                        <span className="min-w-0 flex-1 truncate">{label}</span>
+                        {pending ? <span className="shrink-0 text-[11px] opacity-55">处理中</span> : null}
+                        <ChevronRight className="size-3.5 shrink-0 opacity-45 transition-transform group-open:rotate-90" />
+                    </span>
                 </summary>
                 <div className="border-t border-stone-200/70 px-3 py-2 dark:border-stone-700/70">
                     <div className="mb-1.5 flex items-center gap-1.5 text-[11px] opacity-60"><Wrench className="size-3" />{toolName || "画布工具"}</div>
@@ -233,6 +256,40 @@ function ToolProcessCard({ item, toolName }: { item: InternalAgentMessage; toolN
             </details>
         </div>
     );
+}
+
+function ConversationHistory({ threads, activeThreadId, running, onSelect, onDelete }: { threads: InternalAgentThread[]; activeThreadId: string; running: boolean; onSelect: (threadId: string) => void; onDelete: (threadId: string) => void }) {
+    return (
+        <div className="w-72">
+            <div className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold"><History className="size-4" />对话历史</div>
+            <div className="thin-scrollbar max-h-80 space-y-1 overflow-y-auto">
+                {threads.map((thread) => {
+                    const active = thread.id === activeThreadId;
+                    return (
+                        <div key={thread.id} className={`group flex items-center gap-1 rounded-lg ${active ? "bg-blue-50 dark:bg-blue-950/40" : "hover:bg-stone-100 dark:hover:bg-stone-800"}`}>
+                            <button type="button" disabled={running} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50" onClick={() => onSelect(thread.id)}>
+                                <MessageSquareText className={`size-4 shrink-0 ${active ? "text-blue-600" : "opacity-45"}`} />
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm">{thread.title}</span>
+                                    <span className="block text-[11px] opacity-45">{formatConversationTime(thread.updatedAt)}</span>
+                                </span>
+                            </button>
+                            <Popconfirm title="删除这条对话？" description="删除后无法恢复" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} disabled={running} onConfirm={() => onDelete(thread.id)}>
+                                <button type="button" disabled={running} className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-stone-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed" aria-label={`删除对话 ${thread.title}`} title="删除对话">
+                                    <Trash2 className="size-3.5" />
+                                </button>
+                            </Popconfirm>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function formatConversationTime(value: string) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function PermissionSettings({ permissions, onChange, onOpenConfig, onTest, testing }: { permissions: ReturnType<typeof useInternalAgentStore.getState>["permissions"]; onChange: (patch: Partial<typeof permissions>) => void; onOpenConfig: () => void; onTest: () => void; testing: boolean }) {
