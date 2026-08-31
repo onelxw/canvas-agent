@@ -448,7 +448,7 @@ export default {
         saved: "Settings saved",
         savedContinue: "Settings saved. Continue with your previous request.",
         channels: {
-            description: "Choose a protocol for each provider, fetch its models, assign capabilities, and optionally customize request scripts.",
+            description: "Configure the API key, request protocol, and model capabilities for the fixed service endpoint. Changes apply directly on this page.",
             add: "Add provider",
             unnamed: "Unnamed provider",
             numberedName: "Provider {{count}}",
@@ -486,6 +486,7 @@ export default {
             agentProtocol: "Canvas Agent protocol",
             agentProtocolDescription: "Used only by the built-in Canvas Agent. Protocol errors do not auto-fallback, preventing duplicate requests and charges.",
             baseUrl: "API endpoint",
+            fixedBaseUrl: "The service endpoint is fixed by the application and cannot be changed.",
             models: "Provider models",
             modelDescription: "{{count}} selected; assign a capability to each model and optionally customize its request script.",
             selectModels: "Select models",

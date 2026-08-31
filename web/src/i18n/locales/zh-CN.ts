@@ -448,7 +448,7 @@ export default {
         saved: "配置已保存",
         savedContinue: "配置已保存，请继续刚才的请求",
         channels: {
-            description: "每个渠道选择一个协议并拉取模型，为每个模型指定能力（生图/视频/文本/音频），并可自定义调用脚本。",
+            description: "使用固定服务地址配置 API Key、调用协议和模型能力；所有设置在当前页面直接生效。",
             add: "新增渠道",
             unnamed: "未命名渠道",
             numberedName: "渠道 {{count}}",
@@ -486,6 +486,7 @@ export default {
             agentProtocol: "画布 Agent 协议",
             agentProtocolDescription: "仅用于内置画布 Agent；协议失败时不会自动回退，避免重复请求和计费。",
             baseUrl: "接口地址",
+            fixedBaseUrl: "服务地址由应用固定，不支持修改。",
             models: "渠道模型",
             modelDescription: "已选 {{count}} 个；为每个模型指定能力并可自定义调用脚本。",
             selectModels: "选择模型",
