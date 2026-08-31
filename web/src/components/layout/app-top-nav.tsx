@@ -69,7 +69,7 @@ export function AppTopNav() {
                             <Tooltip title={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}>
                                 <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" icon={<Bot className="size-4" />} onClick={togglePanel} aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")} />
                             </Tooltip>
-                            <UserStatusActions showDocs={pathname !== "/"} showGitHub={pathname !== "/"} />
+                            <UserStatusActions />
                         </div>
                     </div>
                 </header>

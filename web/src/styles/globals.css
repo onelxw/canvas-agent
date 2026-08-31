@@ -252,6 +252,34 @@
         border-radius: 999px;
     }
 
+    .workbench-scrollbar {
+        scrollbar-color: rgba(120, 113, 108, 0.38) transparent;
+        scrollbar-width: thin;
+    }
+
+    .workbench-scrollbar::-webkit-scrollbar {
+        height: 3px;
+        width: 3px;
+    }
+
+    .workbench-scrollbar::-webkit-scrollbar-button,
+    .workbench-scrollbar::-webkit-scrollbar-button:single-button {
+        display: none;
+        height: 0;
+        width: 0;
+    }
+
+    .workbench-scrollbar::-webkit-scrollbar-corner,
+    .workbench-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .workbench-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(120, 113, 108, 0.38);
+        border: 0;
+        border-radius: 999px;
+    }
+
     .hover-scrollbar {
         scrollbar-color: transparent transparent;
         scrollbar-width: thin;

@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { ConfigProvider, Switch } from "antd";
+import { ConfigProvider, Select, Switch } from "antd";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
@@ -41,9 +41,10 @@ type ImageSettingsPanelProps = {
     className?: string;
     maxCount?: number;
     quickCount?: number;
+    variant?: "detailed" | "workbench";
 };
 
-export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", maxCount = 15, quickCount = 10 }: ImageSettingsPanelProps) {
+export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", maxCount = 15, quickCount = 10, variant = "detailed" }: ImageSettingsPanelProps) {
     const { t } = useTranslation();
     const [snapDimensionToStep, setSnapDimensionToStep] = useState(true);
     const quality = config.quality || "auto";
@@ -62,6 +63,55 @@ export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = 
         const height = key === "height" ? next : dimensions.height;
         onConfigChange("size", `${alignDimension(width, snapDimensionToStep)}x${alignDimension(height, snapDimensionToStep)}`);
     };
+
+    if (variant === "workbench") {
+        const aspectSelectOptions = aspectOptions.map((item) => ({
+            value: item.size || item.value,
+            label: <SelectOptionLabel primary={item.icon === "auto" ? t("settingsPanels.common.auto") : item.label.replace(/\([^)]*\)$/, "")} secondary={item.width && item.height ? `${item.width} × ${item.height}` : t("settingsPanels.image.adaptiveResolution")} />,
+        }));
+        if (!aspectSelectOptions.some((item) => item.value === activeSize)) aspectSelectOptions.unshift({ value: activeSize, label: <SelectOptionLabel primary={formatAspectRatio(dimensions.width, dimensions.height)} secondary={`${dimensions.width} × ${dimensions.height}`} /> });
+
+        return (
+            <ImageSettingsTheme theme={theme}>
+                <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
+                    {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.image.title")}</div> : null}
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <SelectSetting title={t("settingsPanels.image.quality")} color={theme.node.muted}>
+                            <Select className="w-full" size="large" value={quality} options={qualityOptions.map((item) => ({ value: item.value, label: t(`settingsPanels.common.${item.labelKey}`) }))} onChange={(value) => onConfigChange("quality", value)} />
+                        </SelectSetting>
+                        <SelectSetting title={t("settingsPanels.image.aspectRatio")} color={theme.node.muted}>
+                            <Select
+                                className="w-full"
+                                size="large"
+                                value={activeSize}
+                                options={aspectSelectOptions}
+                                popupMatchSelectWidth={190}
+                                labelRender={({ value }) => {
+                                    const item = aspectOptions.find((option) => (option.size || option.value) === value);
+                                    return item ? (item.icon === "auto" ? t("settingsPanels.common.auto") : item.label.replace(/\([^)]*\)$/, "")) : formatAspectRatio(dimensions.width, dimensions.height);
+                                }}
+                                onChange={(value) => onConfigChange("size", value)}
+                            />
+                        </SelectSetting>
+                        <SelectSetting title={t("settingsPanels.image.count")} color={theme.node.muted}>
+                            <Select className="w-full" size="large" value={String(count)} options={Array.from({ length: maxCount }, (_, index) => ({ value: String(index + 1), label: t("settingsPanels.image.images", { count: index + 1 }) }))} onChange={(value) => onConfigChange("count", value)} />
+                        </SelectSetting>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                            <SettingTitle color={theme.node.muted}>{t("settingsPanels.image.transparent")}</SettingTitle>
+                            <div className="text-xs" style={{ color: theme.node.muted, opacity: 0.75 }}>
+                                {t("settingsPanels.image.transparentHint")}
+                            </div>
+                        </div>
+                        <span onMouseDown={(event) => event.stopPropagation()}>
+                            <Switch size="small" checked={transparentBackground} onChange={(checked) => onConfigChange("background", checked ? "transparent" : "")} />
+                        </span>
+                    </div>
+                </div>
+            </ImageSettingsTheme>
+        );
+    }
 
     return (
         <ImageSettingsTheme theme={theme}>
@@ -249,6 +299,24 @@ function SettingTitle({ children, color }: { children: string; color: string }) 
     );
 }
 
+function SelectSetting({ title, color, children }: { title: string; color: string; children: ReactNode }) {
+    return (
+        <label className="block min-w-0 space-y-1.5">
+            <SettingTitle color={color}>{title}</SettingTitle>
+            {children}
+        </label>
+    );
+}
+
+function SelectOptionLabel({ primary, secondary }: { primary: string; secondary: string }) {
+    return (
+        <span className="flex min-w-0 items-center justify-between gap-2">
+            <span className="shrink-0">{primary}</span>
+            <span className="shrink-0 text-[11px] opacity-55">{secondary}</span>
+        </span>
+    );
+}
+
 function readSizeDimensions(size: string, fallback: { width: number; height: number }) {
     const match = size?.match(/^(\d+)x(\d+)$/);
     return {
@@ -259,4 +327,16 @@ function readSizeDimensions(size: string, fallback: { width: number; height: num
 
 function alignDimension(value: number, enabled: boolean) {
     return enabled ? Math.ceil(value / DIMENSION_STEP) * DIMENSION_STEP : value;
+}
+
+function formatAspectRatio(width: number, height: number) {
+    const divisor = greatestCommonDivisor(width, height);
+    return `${Math.max(1, Math.round(width / divisor))}:${Math.max(1, Math.round(height / divisor))}`;
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+    let a = Math.max(1, Math.round(left));
+    let b = Math.max(1, Math.round(right));
+    while (b) [a, b] = [b, a % b];
+    return a;
 }

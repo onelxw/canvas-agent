@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { Select } from "antd";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
@@ -32,9 +33,10 @@ type VideoSettingsPanelProps = {
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
+    variant?: "detailed" | "workbench";
 };
 
-export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
+export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", variant = "detailed" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
     const seconds = config.videoSeconds || "6";
     const size = normalizeVideoSizeValue(config.size);
@@ -44,6 +46,44 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
         const next = Math.max(1, Math.floor(value || dimensions[key] || 720));
         onConfigChange("size", `${key === "width" ? next : dimensions.width}x${key === "height" ? next : dimensions.height}`);
     };
+
+    if (variant === "workbench") {
+        const sizeSelectOptions = sizeOptions.map((item) => ({
+            value: item.value,
+            label: <SelectOptionLabel primary={item.value === "auto" ? t("settingsPanels.video.adaptive") : `${formatAspectRatio(item.width, item.height)} · ${t(`settingsPanels.video.sizes.${item.labelKey}`)}`} secondary={item.value === "auto" ? t("settingsPanels.video.adaptiveResolution") : `${item.width} × ${item.height}`} />,
+        }));
+        if (!sizeSelectOptions.some((item) => item.value === size)) sizeSelectOptions.unshift({ value: size, label: <SelectOptionLabel primary={formatAspectRatio(dimensions.width, dimensions.height)} secondary={`${dimensions.width} × ${dimensions.height}`} /> });
+
+        return (
+            <ImageSettingsTheme theme={theme}>
+                <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
+                    {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <SelectSetting title={t("settingsPanels.video.quality")} color={theme.node.muted}>
+                            <Select className="w-full" size="large" value={resolution} options={resolutionOptions} onChange={(value) => onConfigChange("vquality", value)} />
+                        </SelectSetting>
+                        <SelectSetting title={t("settingsPanels.video.ratio")} color={theme.node.muted}>
+                            <Select
+                                className="w-full"
+                                size="large"
+                                value={size}
+                                options={sizeSelectOptions}
+                                popupMatchSelectWidth={210}
+                                labelRender={({ value }) => {
+                                    const item = sizeOptions.find((option) => option.value === value);
+                                    return item ? (item.value === "auto" ? t("settingsPanels.video.adaptive") : formatAspectRatio(item.width, item.height)) : formatAspectRatio(dimensions.width, dimensions.height);
+                                }}
+                                onChange={(value) => onConfigChange("size", value)}
+                            />
+                        </SelectSetting>
+                        <SelectSetting title={t("settingsPanels.video.seconds")} color={theme.node.muted}>
+                            <Select className="w-full" size="large" value={seconds} options={secondOptions.map((value) => ({ value: String(value), label: `${value}s` }))} onChange={(value) => onConfigChange("videoSeconds", value)} />
+                        </SelectSetting>
+                    </div>
+                </div>
+            </ImageSettingsTheme>
+        );
+    }
 
     return (
         <ImageSettingsTheme theme={theme}>
@@ -148,6 +188,26 @@ function SettingGroup({ title, color, children }: { title: string; color: string
     );
 }
 
+function SelectSetting({ title, color, children }: { title: string; color: string; children: ReactNode }) {
+    return (
+        <label className="block min-w-0 space-y-1.5">
+            <div className="text-xs font-medium" style={{ color }}>
+                {title}
+            </div>
+            {children}
+        </label>
+    );
+}
+
+function SelectOptionLabel({ primary, secondary }: { primary: string; secondary: string }) {
+    return (
+        <span className="flex min-w-0 items-center justify-between gap-2">
+            <span className="shrink-0">{primary}</span>
+            <span className="shrink-0 text-[11px] opacity-55">{secondary}</span>
+        </span>
+    );
+}
+
 function ResolutionInput({ value, theme, onChange }: { value: string; theme: CanvasTheme; onChange: (value: string) => void }) {
     return (
         <label className="flex h-9 overflow-hidden rounded-full border text-sm" style={{ borderColor: theme.node.stroke, color: theme.node.text }}>
@@ -186,4 +246,16 @@ function readSizeDimensions(size: string) {
     if (size === "auto") return { width: 0, height: 0 };
     const match = size.match(/^(\d+)x(\d+)$/);
     return { width: Number(match?.[1]) || 1280, height: Number(match?.[2]) || 720 };
+}
+
+function formatAspectRatio(width: number, height: number) {
+    const divisor = greatestCommonDivisor(width, height);
+    return `${Math.max(1, Math.round(width / divisor))}:${Math.max(1, Math.round(height / divisor))}`;
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+    let a = Math.max(1, Math.round(left));
+    let b = Math.max(1, Math.round(right));
+    while (b) [a, b] = [b, a % b];
+    return a;
 }
