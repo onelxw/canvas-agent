@@ -2,6 +2,7 @@
 
 ## Unreleased
 
++ [调整] 内置渠道的默认聊天模型由 `gpt-5.5` 更新为 `gpt-5.6-terra`。
 + [调整] Docker Compose 默认对外端口由 3000 调整为 3020，容器内部服务与健康检查仍使用 3000。
 + [修复] 默认 Docker Compose 改为构建当前仓库源码并增加健康检查，避免继续拉取上游镜像；Dockerfile 会将 Windows CRLF 启动脚本转换为 Unix LF，修复 Nginx 容器启动后反复重启的问题。
 + [调整] README 更新为“无限次元”和当前仓库的部署地址，并移除赞助商广告、联系方式、赞助支持、社区推广及 Star History 等内容。

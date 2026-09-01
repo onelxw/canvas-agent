@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createModelChannel, defaultConfig, FIXED_CHANNEL_BASE_URL, normalizeSingleChannelConfig, resolveModelRequestConfig } from "@/stores/use-config-store";
 
 describe("fixed model channel", () => {
+    it("uses gpt-5.6-terra as the default text model", () => {
+        expect(defaultConfig.textModel).toBe("default::gpt-5.6-terra");
+        expect(defaultConfig.channels[0].models).toContainEqual({ name: "gpt-5.6-terra", capability: "text" });
+    });
+
     it("always creates channels with the application endpoint", () => {
         const channel = createModelChannel({ baseUrl: "https://example.com", apiKey: "secret" });
 
