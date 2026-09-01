@@ -28,7 +28,8 @@ export function AppTopNav() {
                     <div className="mx-auto flex h-full max-w-7xl items-stretch justify-between gap-5 px-6">
                         <div className="flex min-w-0 items-center">
                             <Link to="/" className="flex h-full shrink-0 items-center gap-2 text-sm font-semibold leading-none tracking-tight text-stone-950 transition hover:text-stone-600 dark:text-stone-100 dark:hover:text-stone-300">
-                                <img src="/logo.png" alt="" aria-hidden="true" className="size-6 shrink-0 object-contain" />
+                                <img src="/infinite-logo-light.png" alt="" aria-hidden="true" className="size-6 shrink-0 object-contain dark:hidden" />
+                                <img src="/infinite-logo-dark.png" alt="" aria-hidden="true" className="hidden size-6 shrink-0 object-contain dark:block" />
                                 <span className="text-base font-medium">{t("meta.title")}</span>
                             </Link>
 

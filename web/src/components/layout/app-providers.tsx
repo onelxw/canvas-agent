@@ -33,6 +33,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     useEffect(() => {
         document.documentElement.classList.toggle("dark", dark);
         document.documentElement.style.colorScheme = theme;
+        document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute("href", dark ? "/infinite-logo-dark.png" : "/infinite-logo-light.png");
     }, [dark, theme]);
 
     useEffect(() => {
