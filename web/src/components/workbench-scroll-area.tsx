@@ -22,11 +22,29 @@ type WorkbenchScrollAreaProps = {
 
 const TRACK_INSET = 8;
 const MIN_THUMB_HEIGHT = 28;
+const HIDE_DELAY_MS = 900;
 
 export function WorkbenchScrollArea({ children, className, viewportClassName }: WorkbenchScrollAreaProps) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const dragRef = useRef<DragState | null>(null);
+    const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [thumb, setThumb] = useState<ThumbMetrics>({ height: 0, top: TRACK_INSET, visible: false });
+    const [active, setActive] = useState(false);
+
+    const clearHideTimer = useCallback(() => {
+        if (!hideTimerRef.current) return;
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+    }, []);
+
+    const revealTemporarily = useCallback(() => {
+        clearHideTimer();
+        setActive(true);
+        hideTimerRef.current = setTimeout(() => {
+            if (!dragRef.current) setActive(false);
+            hideTimerRef.current = null;
+        }, HIDE_DELAY_MS);
+    }, [clearHideTimer]);
 
     const syncThumb = useCallback(() => {
         const viewport = viewportRef.current;
@@ -59,8 +77,14 @@ export function WorkbenchScrollArea({ children, className, viewportClassName }: 
             resizeObserver?.disconnect();
             mutationObserver?.disconnect();
             window.removeEventListener("resize", syncThumb);
+            clearHideTimer();
         };
-    }, [syncThumb]);
+    }, [clearHideTimer, syncThumb]);
+
+    const handleScrollActivity = () => {
+        syncThumb();
+        revealTemporarily();
+    };
 
     const scrollFromTrackPosition = (track: HTMLDivElement, clientY: number) => {
         const viewport = viewportRef.current;
@@ -77,6 +101,8 @@ export function WorkbenchScrollArea({ children, className, viewportClassName }: 
         const viewport = viewportRef.current;
         if (!viewport) return;
         event.preventDefault();
+        clearHideTimer();
+        setActive(true);
         event.currentTarget.setPointerCapture(event.pointerId);
         if ((event.target as HTMLElement).dataset.workbenchScrollbarThumb !== undefined) {
             dragRef.current = { pointerId: event.pointerId, startClientY: event.clientY, startScrollTop: viewport.scrollTop };
@@ -94,20 +120,26 @@ export function WorkbenchScrollArea({ children, className, viewportClassName }: 
         if (maxScroll <= 0 || travel <= 0) return;
         viewport.scrollTop = drag.startScrollTop + ((event.clientY - drag.startClientY) / travel) * maxScroll;
         syncThumb();
+        setActive(true);
     };
 
     const endDrag = (event: PointerEvent<HTMLDivElement>) => {
-        if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+        if (dragRef.current?.pointerId !== event.pointerId) return;
+        dragRef.current = null;
+        revealTemporarily();
     };
 
     return (
         <div className={cn("relative overflow-hidden", className)}>
-            <div ref={viewportRef} className={cn("workbench-scrollbar min-h-0", viewportClassName)} onScroll={syncThumb}>
+            <div ref={viewportRef} className={cn("workbench-scrollbar min-h-0", viewportClassName)} onScroll={handleScrollActivity} onWheel={revealTemporarily} onTouchMove={revealTemporarily}>
                 {children}
             </div>
             {thumb.visible ? (
                 <div
-                    className="absolute bottom-2 right-0 top-2 z-20 w-3 cursor-pointer touch-none rounded-full hover:bg-stone-200/45 dark:hover:bg-stone-800/55"
+                    className={cn(
+                        "absolute bottom-2 right-0 top-2 z-20 w-3 cursor-pointer touch-none rounded-full transition-opacity duration-200 hover:bg-stone-200/45 dark:hover:bg-stone-800/55",
+                        active ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+                    )}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={endDrag}
