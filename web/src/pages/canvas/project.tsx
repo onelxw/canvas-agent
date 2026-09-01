@@ -2100,11 +2100,14 @@ function InfiniteCanvasPage() {
         setTitleEditing(false);
     }, [projectId, renameProject, titleDraft]);
 
-    const preventCanvasContextMenu = useCallback((event: ReactMouseEvent) => {
-        if ((event.target as HTMLElement).closest("[data-node-id]")) return;
+    const handleCanvasContextMenu = useCallback((event: ReactMouseEvent) => {
         event.preventDefault();
+        const target = event.target instanceof Element ? event.target : null;
+        if (target?.closest("[data-canvas-no-zoom],[data-node-id],[data-connection-id]")) return;
         setContextMenu(null);
-    }, []);
+        if (referencePickerNodeId) return;
+        setNodeCreatePosition(screenToCanvas(event.clientX, event.clientY));
+    }, [referencePickerNodeId, screenToCanvas]);
 
     const handleGenerateNode = useCallback(
         async (nodeId: string, mode: CanvasNodeGenerationMode, prompt: string) => {
@@ -2950,12 +2953,7 @@ function InfiniteCanvasPage() {
                         if (!referencePickerNodeId) handleCanvasMouseDown(event);
                     }}
                     onCanvasDeselect={referencePickerNodeId ? undefined : deselectCanvas}
-                    onCanvasDoubleClick={(event) => {
-                        if (referencePickerNodeId) return;
-                        setContextMenu(null);
-                        setNodeCreatePosition(screenToCanvas(event.clientX, event.clientY));
-                    }}
-                    onContextMenu={preventCanvasContextMenu}
+                    onContextMenu={handleCanvasContextMenu}
                     onDrop={handleDrop}
                 >
                     <svg className="absolute left-0 top-0 h-[10000px] w-[10000px] overflow-visible" style={{ pointerEvents: "none", transform: "translateZ(0)", zIndex: 0 }}>
