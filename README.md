@@ -58,7 +58,7 @@ cd canvas-agent
 docker compose up -d --build
 ```
 
-运行后默认端口3000，可访问 `http://localhost:3000`。
+运行后默认端口为 3020，可访问 `http://localhost:3020`。
 
 首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
 

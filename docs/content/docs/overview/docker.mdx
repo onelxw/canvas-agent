@@ -13,12 +13,12 @@ cd canvas-agent
 docker compose up -d --build
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3020`.
 
 ## Use the published image
 
 ```bash
-docker run -d --name infinite-canvas -p 3000:3000 ghcr.io/onelxw/canvas-agent:latest
+docker run -d --name infinite-canvas -p 3020:3000 ghcr.io/onelxw/canvas-agent:latest
 ```
 
 ## Documentation image
@@ -53,7 +53,7 @@ services:
   app:
     image: ghcr.io/onelxw/canvas-agent:latest
     ports:
-      - "3000:3000"
+      - "3020:3000"
     environment:
       ANALYTICS_GA4_ID: G-XXXXXXXXXX
       ANALYTICS_BAIDU_ID: e8263761cc5c32f5f7a855b8203b965a
