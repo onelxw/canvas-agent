@@ -253,31 +253,14 @@
     }
 
     .workbench-scrollbar {
-        scrollbar-color: rgba(120, 113, 108, 0.38) transparent;
-        scrollbar-width: thin;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
 
     .workbench-scrollbar::-webkit-scrollbar {
-        height: 3px;
-        width: 3px;
-    }
-
-    .workbench-scrollbar::-webkit-scrollbar-button,
-    .workbench-scrollbar::-webkit-scrollbar-button:single-button {
         display: none;
         height: 0;
         width: 0;
-    }
-
-    .workbench-scrollbar::-webkit-scrollbar-corner,
-    .workbench-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .workbench-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(120, 113, 108, 0.38);
-        border: 0;
-        border-radius: 999px;
     }
 
     .hover-scrollbar {
@@ -294,6 +277,13 @@
         width: 6px;
     }
 
+    .hover-scrollbar::-webkit-scrollbar-button,
+    .hover-scrollbar::-webkit-scrollbar-button:single-button {
+        display: none;
+        height: 0;
+        width: 0;
+    }
+
     .hover-scrollbar::-webkit-scrollbar-thumb {
         background: transparent;
         border-radius: 999px;
@@ -306,28 +296,6 @@
 
     .hover-scrollbar:hover::-webkit-scrollbar-thumb {
         background: rgba(120, 113, 108, 0.5);
-    }
-
-    .hover-scrollbar-hint {
-        position: relative;
-    }
-
-    .hover-scrollbar-hint::after {
-        background: rgba(120, 113, 108, 0.42);
-        border-radius: 999px;
-        bottom: 4px;
-        content: "";
-        height: 3px;
-        left: 12px;
-        opacity: 0;
-        pointer-events: none;
-        position: absolute;
-        right: 12px;
-        transition: opacity 0.18s ease;
-    }
-
-    .hover-scrollbar-hint:hover::after {
-        opacity: 1;
     }
 
     .canvas-control-select.ant-select .ant-select-selector,
