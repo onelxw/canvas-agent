@@ -5,20 +5,20 @@ description: Deploy Infinite Canvas with Docker Compose
 
 # Docker Deployment
 
-## Use the published image
+## Build and run the current source
 
 ```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
-docker compose up -d
+git clone https://github.com/onelxw/canvas-agent.git
+cd canvas-agent
+docker compose up -d --build
 ```
 
 Open `http://localhost:3000`.
 
-## Build locally
+## Use the published image
 
 ```bash
-docker compose -f docker-compose.local.yml up -d --build
+docker run -d --name infinite-canvas -p 3000:3000 ghcr.io/onelxw/canvas-agent:latest
 ```
 
 ## Documentation image
@@ -51,7 +51,7 @@ No analytics are enabled by default. A deployment can enable GA4, Baidu Analytic
 ```yaml
 services:
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
+    image: ghcr.io/onelxw/canvas-agent:latest
     ports:
       - "3000:3000"
     environment:
