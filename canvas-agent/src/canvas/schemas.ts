@@ -81,7 +81,8 @@ const generationOptionsSchema = z.object({
 });
 
 const generationFlowSchema = z.object({
-    prompt: z.string(),
+    prompt: z.string().optional(),
+    promptNodeId: z.string().optional(),
     title: z.string().optional(),
     x: z.number().optional(),
     y: z.number().optional(),
@@ -138,7 +139,7 @@ export const toolDescriptions: Record<ToolName, string> = {
     canvas_create_text_nodes: "批量创建文本节点，适合生成标题、段落、脚本、说明等内容块。",
     canvas_create_config_node: "创建生成配置节点，可指定 text/image/video/audio 模式和生成参数，可选择立即触发生成。",
     canvas_create_image_prompt_flow: "创建提示词文本节点和图片生成配置节点，并自动连线，可选择立即触发生图。",
-    canvas_create_generation_flow: "创建通用生成流程：提示词文本节点、生成配置节点、参考节点连线，可用于文案、生图、视频或音频。",
+    canvas_create_generation_flow: "创建通用生成流程。已有文本节点时必须传 promptNodeId 直接复用并连线，不要重复创建提示词节点；仅在没有现成提示词节点时传 prompt 创建新文本节点。referenceNodeIds 用于图片等其他参考节点。",
     canvas_generate_text: "创建通用文本生成流程并立即触发生成。",
     canvas_generate_image: "创建通用图片生成流程并立即触发生成。",
     canvas_generate_video: "创建通用视频生成流程并立即触发生成。",

@@ -22,7 +22,7 @@ const descriptions: Record<InternalAgentToolName, string> = {
     canvas_get_selection: "读取当前画布选中的节点。",
     canvas_apply_ops: "批量修改当前画布。仅支持节点、连线、选区和视口操作，不会触发内容生成。",
     canvas_create_text_nodes: "在当前画布批量创建文本节点。",
-    canvas_create_generation_flow: "创建提示词和生成配置流程并连接参考节点，但不会自动开始付费生成。",
+    canvas_create_generation_flow: "创建生成配置流程，但不会自动开始付费生成。已有文本节点时必须传 promptNodeId 直接复用并连线，不要重复创建提示词节点；仅在没有现成提示词节点时传 prompt 创建新文本节点。referenceNodeIds 用于图片等其他参考节点。",
     canvas_update_node: "更新当前画布中一个节点的安全字段。",
     canvas_move_nodes: "移动当前画布中的一个或多个节点。",
     canvas_resize_node: "调整当前画布中一个节点的尺寸。",

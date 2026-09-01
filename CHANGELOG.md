@@ -2,6 +2,8 @@
 
 ## Unreleased
 
++ [修复] 画布 Agent 创建生成流程时可通过 `promptNodeId` 直接复用并连接已有文本节点，不再为“连接现有文本到生成节点”的请求重复创建提示词节点；本地 Agent 工具保持相同行为。
++ [优化] 画布 revision 不再因选区或视口变化递增，同一轮 Agent 批量写入会安全衔接自身产生的新 revision，外部内容变化仍会触发冲突保护。
 + [调整] 内置渠道的默认聊天模型由 `gpt-5.5` 更新为 `gpt-5.6-terra`。
 + [调整] Docker Compose 默认对外端口由 3000 调整为 3020，容器内部服务与健康检查仍使用 3000。
 + [修复] 默认 Docker Compose 改为构建当前仓库源码并增加健康检查，避免继续拉取上游镜像；Dockerfile 会将 Windows CRLF 启动脚本转换为 Unix LF，修复 Nginx 容器启动后反复重启的问题。

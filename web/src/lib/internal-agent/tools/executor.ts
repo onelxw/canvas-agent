@@ -12,6 +12,8 @@ export type InternalAgentCanvasContext = {
 };
 
 export function createInternalAgentToolExecutor(context: InternalAgentCanvasContext, limits: InternalAgentLimits) {
+    let lastAppliedRevision: number | null = null;
+    const agentOwnedRevisions = new Set<number>();
     return async (name: string, value: unknown) => {
         const input = value as Record<string, unknown>;
         const snapshot = context.getSnapshot();
@@ -22,12 +24,22 @@ export function createInternalAgentToolExecutor(context: InternalAgentCanvasCont
         }
         assertProject(input, snapshot);
         if (name === "generation_get_status") return generationStatus(snapshot, input);
-        assertRevision(input, snapshot);
+        const expectedRevision = Number(input.expectedRevision);
+        const continuesOwnBatch = lastAppliedRevision === snapshot.revision && agentOwnedRevisions.has(expectedRevision);
+        if (expectedRevision !== snapshot.revision && !continuesOwnBatch) {
+            lastAppliedRevision = null;
+            agentOwnedRevisions.clear();
+            assertRevision(input, snapshot);
+        }
+        if (!continuesOwnBatch && lastAppliedRevision !== snapshot.revision) agentOwnedRevisions.clear();
 
         if (name === "canvas_run_generation") {
             const nodeId = String(input.nodeId);
             assertKnownNodes(snapshot, [nodeId]);
             await context.runGeneration({ nodeId, mode: input.mode as "text" | "image" | "video" | "audio" | undefined, prompt: input.prompt as string | undefined });
+            agentOwnedRevisions.add(snapshot.revision);
+            lastAppliedRevision = context.getSnapshot().revision;
+            agentOwnedRevisions.add(lastAppliedRevision);
             return { accepted: true, projectId: snapshot.projectId, revision: context.getSnapshot().revision, nodeId };
         }
 
@@ -35,6 +47,10 @@ export function createInternalAgentToolExecutor(context: InternalAgentCanvasCont
         assertOperationLimits(ops, limits);
         assertOperationReferences(snapshot, ops);
         const next = await context.applyOps(ops);
+        agentOwnedRevisions.add(expectedRevision);
+        agentOwnedRevisions.add(snapshot.revision);
+        agentOwnedRevisions.add(next.revision);
+        lastAppliedRevision = next.revision;
         return { applied: true, projectId: next.projectId, revision: next.revision, operationCount: ops.length, affectedNodeIds: affectedNodeIds(ops) };
     };
 }

@@ -73,31 +73,36 @@ function createTextNodes(input: ToolInput, snapshot: CanvasAgentSnapshot): Canva
 function createGenerationFlow(input: ToolInput, snapshot: CanvasAgentSnapshot): CanvasAgentOp[] {
     const mode = generationMode(input.mode);
     const prompt = String(input.prompt || "");
-    const x = numberOr(input.x, nextCanvasX(snapshot));
-    const y = numberOr(input.y, 0);
+    const promptNodeId = typeof input.promptNodeId === "string" ? input.promptNodeId : "";
+    const promptNode = promptNodeId ? snapshot.nodes.find((node) => node.id === promptNodeId) : undefined;
+    if (promptNodeId && !promptNode) throw new Error(`提示词节点不存在：${promptNodeId}`);
+    if (promptNode && promptNode.type !== "text") throw new Error(`提示词节点必须是文本节点：${promptNodeId}`);
+    const x = numberOr(input.x, promptNode ? promptNode.position.x + promptNode.width + 80 : nextCanvasX(snapshot));
+    const y = numberOr(input.y, promptNode?.position.y || 0);
     const textId = `text-${nanoid()}`;
     const configId = `config-${nanoid()}`;
-    const referenceNodeIds = (input.referenceNodeIds as string[] | undefined) || [];
+    const referenceNodeIds = Array.from(new Set(((input.referenceNodeIds as string[] | undefined) || []).filter((id) => id !== promptNodeId)));
     const knownIds = new Set(snapshot.nodes.map((node) => node.id));
     referenceNodeIds.forEach((id) => {
         if (!knownIds.has(id)) throw new Error(`引用节点不存在：${id}`);
     });
-    const tokens = [`@[node:${textId}]`, ...referenceNodeIds.map((id) => `@[node:${id}]`)];
+    const sourceTextId = promptNodeId || textId;
+    const tokens = [`@[node:${sourceTextId}]`, ...referenceNodeIds.map((id) => `@[node:${id}]`)];
     return [
-        {
+        ...(!promptNodeId ? [{
             type: "add_node",
             id: textId,
             nodeType: "text",
             title: typeof input.title === "string" ? input.title : "提示词",
             position: { x, y },
             metadata: { content: prompt, status: "success", fontSize: 14 },
-        },
+        } satisfies CanvasAgentOp] : []),
         {
             type: "add_node",
             id: configId,
             nodeType: "config",
             title: generationTitle(mode),
-            position: { x: x + 420, y },
+            position: { x: promptNodeId ? x : x + 420, y },
             metadata: compactRecord({
                 generationMode: mode,
                 composerContent: tokens.join("\n"),
@@ -117,7 +122,7 @@ function createGenerationFlow(input: ToolInput, snapshot: CanvasAgentSnapshot): 
                 audioInstructions: input.audioInstructions,
             }),
         },
-        { type: "connect_nodes", fromNodeId: textId, toNodeId: configId },
+        { type: "connect_nodes", fromNodeId: sourceTextId, toNodeId: configId },
         ...referenceNodeIds.map((fromNodeId): CanvasAgentOp => ({ type: "connect_nodes", fromNodeId, toNodeId: configId })),
         { type: "select_nodes", ids: [configId] },
     ];

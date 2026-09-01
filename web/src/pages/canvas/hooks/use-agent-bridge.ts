@@ -47,7 +47,7 @@ export function useAgentBridge(params: AgentBridgeParams) {
     useLayoutEffect(() => {
         const observed = observedRef.current;
         if (observed.projectId !== projectId) revisionRef.current = 0;
-        else if (observed.nodes !== nodes || observed.connections !== connections || observed.selectedNodeIds !== selectedNodeIds || observed.viewport !== viewport) revisionRef.current += 1;
+        else if (observed.nodes !== nodes || observed.connections !== connections) revisionRef.current += 1;
         observedRef.current = { projectId, nodes, connections, selectedNodeIds, viewport };
     }, [connections, nodes, projectId, selectedNodeIds, viewport]);
 
@@ -121,7 +121,7 @@ export function useAgentBridge(params: AgentBridgeParams) {
                 connectionsRef.current = next.connections;
                 selectedNodeIdsRef.current = nextSelection;
                 viewportRef.current = next.viewport;
-                revisionRef.current += 1;
+                if (ops.some((op) => op.type !== "select_nodes" && op.type !== "set_viewport" && op.type !== "run_generation")) revisionRef.current += 1;
                 observedRef.current = { projectId, nodes: next.nodes, connections: next.connections, selectedNodeIds: nextSelection, viewport: next.viewport };
                 setNodes(next.nodes);
                 setConnections(next.connections);
