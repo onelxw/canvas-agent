@@ -7,6 +7,8 @@ description: Implemented changes that still need manual verification
 
 The current release needs manual verification in these areas:
 
+- Built-in video requests: OpenAI-format channels should send `mode`, `first_frame`/`last_frame` or `image[]`, `generate_audio`, `watermark`, and reference videos/audio; Gemini-format channels should use `predictLongRunning` with frame or general references.
+- Video generation mode: Video settings should offer First & last frame and General reference. One image is sent as the first frame, two images as first and last frames, and more than two images as general references.
 - Agent generation flows and revisions: asking the Agent to connect an existing text node to a video generation node should reuse that node through `promptNodeId` and create only the config node and connection. Sequential writes emitted by the same Agent batch may reuse their original revision without conflict, while a real node or connection update outside that batch must still reject stale writes. Selection and viewport-only changes must not advance the canvas revision.
 - Default text model: a fresh browser profile should show `gpt-5.6-terra` as the built-in channel's default text model and use it for new text conversations.
 - Docker Compose deployment: after checking out the repository on Windows or Linux, `docker compose up -d --build` should build the current source instead of pulling the upstream image. The container should become healthy without restart loops; `/`, `/image`, `/video`, `/canvas`, and `/config` should return HTTP 200, and `APP_PORT` should override the default host port 3020.

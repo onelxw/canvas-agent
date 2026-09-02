@@ -5,6 +5,8 @@ description: 当前版本已实现但仍需人工验证的变更项
 
 # 待测试
 
+- 视频内置请求：OpenAI 格式应按模式发送 `first_frame`/`last_frame` 或 `image[]`、配音、水印和参考视频/音频；Gemini 格式应通过 `predictLongRunning` 发送首尾帧或全能参考。
+- 视频生成模式：视频设置应出现「首尾帧」和「全能参考」；一张图作为首帧、两张图作为首尾帧，超过两张图时按全能参考发送。
 - Agent 生成流程与 revision：要求 Agent 将已有文本节点连接到视频生成节点时，应通过 `promptNodeId` 复用该节点，只新建配置节点和连线；同一批 Agent 连续写入可沿用起始 revision 而不冲突，批次之外真实发生节点或连线更新后仍必须拒绝旧 revision；仅改变选区或视口不得递增 revision。
 - 默认聊天模型：使用全新浏览器配置打开渠道设置时，内置渠道的默认文本模型应为 `gpt-5.6-terra`，新建文本对话应使用该模型。
 - Docker Compose 部署：在 Windows 与 Linux 检出仓库后执行 `docker compose up -d --build`，应构建当前源码而不是拉取上游镜像；容器应进入 healthy 且不反复重启，主页及 `/image`、`/video`、`/canvas`、`/config` 路由均返回 200，`APP_PORT` 可覆盖默认的宿主机 3020 端口。

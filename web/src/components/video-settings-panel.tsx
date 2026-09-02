@@ -22,6 +22,10 @@ const sizeOptions = [
 ];
 
 const secondOptions = [6, 10, 12, 16, 20];
+const videoModeOptions = [
+    { value: "frames", labelKey: "frames" },
+    { value: "reference", labelKey: "reference" },
+];
 
 export const videoResolutionOptions = resolutionOptions.map((item) => ({ value: item.value, label: item.label }));
 export const videoSizeOptions = sizeOptions.map((item) => ({ value: item.value, get label() { return i18n.t(`settingsPanels.video.sizes.${item.labelKey}`); } }));
@@ -29,7 +33,7 @@ export const videoSecondOptions = secondOptions.map((value) => String(value));
 
 type VideoSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark", value: string) => void;
+    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark" | "videoMode", value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
@@ -39,6 +43,7 @@ type VideoSettingsPanelProps = {
 export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", variant = "detailed" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
     const seconds = config.videoSeconds || "6";
+    const videoMode = normalizeVideoModeValue(config.videoMode);
     const size = normalizeVideoSizeValue(config.size);
     const dimensions = readSizeDimensions(size);
     const resolution = normalizeVideoResolutionValue(config.vquality);
@@ -136,6 +141,15 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                         <NumberInput value={seconds} min={1} max={20} theme={theme} onChange={(value) => onConfigChange("videoSeconds", value)} />
                     </div>
                 </SettingGroup>
+                <SettingGroup title={t("settingsPanels.video.mode")} color={theme.node.muted}>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {videoModeOptions.map((item) => (
+                            <OptionPill key={item.value} selected={videoMode === item.value} theme={theme} onClick={() => onConfigChange("videoMode", item.value)}>
+                                {t(`settingsPanels.video.modes.${item.labelKey}`)}
+                            </OptionPill>
+                        ))}
+                    </div>
+                </SettingGroup>
             </div>
         </ImageSettingsTheme>
     );
@@ -155,6 +169,14 @@ export function videoSizeLabel(value: string) {
 export function videoSecondsLabel(value: string) {
     if (String(value).trim() === "-1") return i18n.t("settingsPanels.video.smart");
     return `${value || "6"}s`;
+}
+
+export function videoModeLabel(value: string) {
+    return i18n.t(`settingsPanels.video.modes.${normalizeVideoModeValue(value)}`);
+}
+
+export function normalizeVideoModeValue(value: string | undefined) {
+    return value === "reference" ? "reference" : "frames";
 }
 
 export function normalizeVideoSizeValue(value: string) {
