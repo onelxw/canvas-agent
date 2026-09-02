@@ -7,6 +7,7 @@ description: Implemented changes that still need manual verification
 
 The current release needs manual verification in these areas:
 
+- Video dimensions and duration: changing 480p/720p/1080p or the ratio should recompute width and height consistently. The workbench should keep compact resolution/ratio selectors and show a 4–30 second slider without custom dimensions.
 - Built-in video requests: OpenAI-format channels should send `mode`, `first_frame`/`last_frame` or `image[]`, `generate_audio`, `watermark`, and reference videos/audio; Gemini-format channels should use `predictLongRunning` with frame or general references.
 - Video generation mode: Video settings should offer First & last frame and General reference. One image is sent as the first frame, two images as first and last frames, and more than two images as general references.
 - Agent generation flows and revisions: asking the Agent to connect an existing text node to a video generation node should reuse that node through `promptNodeId` and create only the config node and connection. Sequential writes emitted by the same Agent batch may reuse their original revision without conflict, while a real node or connection update outside that batch must still reject stale writes. Selection and viewport-only changes must not advance the canvas revision.
