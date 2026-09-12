@@ -19,6 +19,7 @@ const h3ResolutionOptions = [
     { value: "768", label: "768P" },
 ];
 const h3RatioOptions = videoRatioOptions.filter((item) => item.value === "16:9" || item.value === "9:16");
+const dropdownStyles = { popup: { root: { zIndex: 1301 } } } as const;
 
 export const videoResolutionOptions = standardResolutionOptions.map((item) => ({ ...item }));
 export const videoSizeOptions = videoRatioOptions.map((item) => ({
@@ -70,7 +71,7 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                 {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
                 <div className="grid gap-3 sm:grid-cols-2">
                     <SelectSetting title={t("settingsPanels.video.quality")} color={theme.node.muted}>
-                        <Select className="w-full" size="large" value={resolution} options={resolutionOptions} onChange={(value) => applySize(value, selectedRatio)} />
+                        <Select className="w-full" size="large" value={resolution} options={resolutionOptions} styles={dropdownStyles} onChange={(value) => applySize(value, selectedRatio)} />
                     </SelectSetting>
                     <SelectSetting title={t("settingsPanels.video.ratio")} color={theme.node.muted}>
                         <Select
@@ -78,6 +79,7 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                             size="large"
                             value={selectedRatio}
                             options={ratioOptions}
+                            styles={dropdownStyles}
                             popupMatchSelectWidth={220}
                             labelRender={({ value }) => (value === "auto" ? t("settingsPanels.video.adaptive") : String(value))}
                             onChange={(value) => applySize(resolution, value)}

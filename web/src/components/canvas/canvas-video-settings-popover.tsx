@@ -29,6 +29,7 @@ export function CanvasVideoSettingsPopover({ config, onConfigChange, buttonClass
             const target = event.target;
             if (!(target instanceof Node)) return;
             if (buttonRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+            if (target instanceof Element && target.closest(".ant-select-dropdown")) return;
             setOpen(false);
         };
 
