@@ -8,6 +8,17 @@ describe("fixed model channel", () => {
         expect(defaultConfig.channels[0].models).toContainEqual({ name: "gpt-5.6-terra", capability: "text" });
     });
 
+    it("replaces the legacy default video model with the three MiniMax H3 models", () => {
+        const config = normalizeSingleChannelConfig({
+            ...defaultConfig,
+            videoModel: "default::grok-imagine-video",
+            channels: [{ ...defaultConfig.channels[0], models: [{ name: "grok-imagine-video", capability: "video" }] }],
+        });
+
+        expect(config.videoModel).toBe("default::minimax-h3-文生视频");
+        expect(config.channels[0].models.map((model) => model.name)).toEqual(["minimax-h3-文生视频", "minimax-h3-图生视频", "minimax-h3-多图多音频"]);
+    });
+
     it("always creates channels with the application endpoint", () => {
         const channel = createModelChannel({ baseUrl: "https://example.com", apiKey: "secret" });
 

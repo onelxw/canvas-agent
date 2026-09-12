@@ -68,6 +68,13 @@ export type ConfigTabKey = "channels" | "preferences" | "prompt-sources" | "webd
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 export const FIXED_CHANNEL_BASE_URL = "https://api.aiacg.de";
+const LEGACY_DEFAULT_VIDEO_MODEL = "grok-imagine-video";
+const DEFAULT_VIDEO_MODEL = "minimax-h3-文生视频";
+const DEFAULT_VIDEO_MODELS: ChannelModel[] = [
+    { name: "minimax-h3-文生视频", capability: "video" },
+    { name: "minimax-h3-图生视频", capability: "video" },
+    { name: "minimax-h3-多图多音频", capability: "video" },
+];
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
@@ -82,31 +89,26 @@ export const defaultConfig: AiConfig = {
             apiKey: "",
             apiFormat: "openai",
             agentProtocol: "openai-responses",
-            models: [
-                { name: "gpt-image-2", capability: "image" },
-                { name: "grok-imagine-video", capability: "video" },
-                { name: "gpt-5.6-terra", capability: "text" },
-                { name: "gpt-4o-mini-tts", capability: "audio" },
-            ],
+            models: [{ name: "gpt-image-2", capability: "image" }, ...DEFAULT_VIDEO_MODELS, { name: "gpt-5.6-terra", capability: "text" }, { name: "gpt-4o-mini-tts", capability: "audio" }],
         },
     ],
     model: "default::gpt-image-2",
     imageModel: "default::gpt-image-2",
-    videoModel: "default::grok-imagine-video",
+    videoModel: `default::${DEFAULT_VIDEO_MODEL}`,
     textModel: "default::gpt-5.6-terra",
     audioModel: "default::gpt-4o-mini-tts",
     audioVoice: "alloy",
     audioFormat: "mp3",
     audioSpeed: "1",
     audioInstructions: "",
-    videoSeconds: "6",
-    vquality: "720",
+    videoSeconds: "5",
+    vquality: "480",
     videoGenerateAudio: "true",
     videoWatermark: "false",
     videoMode: "frames",
     systemPrompt: "",
     reasoningEffort: "auto",
-    models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.6-terra", "default::gpt-4o-mini-tts"],
+    models: ["default::gpt-image-2", ...DEFAULT_VIDEO_MODELS.map((item) => `default::${item.name}`), "default::gpt-5.6-terra", "default::gpt-4o-mini-tts"],
     quality: "auto",
     size: "1:1",
     background: "",
@@ -361,6 +363,8 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
 function normalizeChannels(config: AiConfig) {
     const persistedChannels = Array.isArray(config.channels) ? config.channels : [];
     const channel = persistedChannels[0];
+    const persistedModels = normalizeChannelModels(channel?.models?.length ? channel.models : [config.model, config.imageModel, config.videoModel, config.textModel, config.audioModel].map(modelOptionName));
+    const models = normalizeChannelModels([...persistedModels.filter((model) => model.name !== LEGACY_DEFAULT_VIDEO_MODEL), ...DEFAULT_VIDEO_MODELS]);
     return [
         createModelChannel({
             ...channel,
@@ -368,7 +372,7 @@ function normalizeChannels(config: AiConfig) {
             name: channel?.name || i18n.t("config.channels.defaultName"),
             apiKey: channel?.apiKey ?? config.apiKey ?? "",
             apiFormat: channel?.apiFormat || config.apiFormat || defaultConfig.apiFormat,
-            models: normalizeChannelModels(channel?.models?.length ? channel.models : [config.model, config.imageModel, config.videoModel, config.textModel, config.audioModel].map(modelOptionName)),
+            models,
         }),
     ];
 }
@@ -385,7 +389,7 @@ export function normalizeSingleChannelConfig(config: AiConfig): AiConfig {
     return {
         ...next,
         imageModel: pick(config.imageModel || config.model, "image"),
-        videoModel: pick(config.videoModel, "video"),
+        videoModel: pick(modelOptionName(config.videoModel) === LEGACY_DEFAULT_VIDEO_MODEL ? DEFAULT_VIDEO_MODEL : config.videoModel, "video"),
         textModel: pick(config.textModel || config.model, "text"),
         audioModel: pick(config.audioModel, "audio"),
     };

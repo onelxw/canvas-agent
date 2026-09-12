@@ -7,7 +7,12 @@ import { buildInternalAgentCanvasOps } from "../tools/operations";
 
 function fixture() {
     let snapshot: InternalAgentRevisionedSnapshot = {
-        projectId: "project-1", revision: 3, title: "Test", selectedNodeIds: [], viewport: { x: 0, y: 0, k: 1 }, connections: [],
+        projectId: "project-1",
+        revision: 3,
+        title: "Test",
+        selectedNodeIds: [],
+        viewport: { x: 0, y: 0, k: 1 },
+        connections: [],
         nodes: [{ id: "n1", type: "text", title: "A", position: { x: 0, y: 0 }, width: 200, height: 100, metadata: { content: "hello" } }],
     };
     return {
@@ -58,21 +63,33 @@ describe("internal Agent canvas executor", () => {
 
     it("reuses an existing text node when creating a generation flow", () => {
         const { current } = fixture();
-        const ops = buildInternalAgentCanvasOps("canvas_create_generation_flow", {
-            promptNodeId: "n1", mode: "video", videoMode: "reference", referenceNodeIds: ["n1"],
-        }, current());
+        const ops = buildInternalAgentCanvasOps(
+            "canvas_create_generation_flow",
+            {
+                promptNodeId: "n1",
+                mode: "video",
+                referenceNodeIds: ["n1"],
+            },
+            current(),
+        );
         expect(ops.some((op) => op.type === "add_node" && op.nodeType === "text")).toBe(false);
         expect(ops.some((op) => op.type === "connect_nodes" && op.fromNodeId === "n1")).toBe(true);
         expect(ops.filter((op) => op.type === "connect_nodes")).toHaveLength(1);
-        expect(ops.some((op) => op.type === "add_node" && op.nodeType === "config" && op.metadata?.videoMode === "reference")).toBe(true);
+        expect(ops.some((op) => op.type === "add_node" && op.nodeType === "config")).toBe(true);
     });
 
     it("enforces the operation limit", async () => {
         const { context } = fixture();
         const execute = createInternalAgentToolExecutor(context, { ...DEFAULT_INTERNAL_AGENT_LIMITS, maxCanvasOps: 1 });
-        await expect(execute("canvas_apply_ops", {
-            projectId: "project-1", expectedRevision: 3,
-            ops: [{ type: "select_nodes", ids: [] }, { type: "set_viewport", viewport: { x: 0, y: 0, k: 1 } }],
-        })).rejects.toThrow("不能超过 1 项");
+        await expect(
+            execute("canvas_apply_ops", {
+                projectId: "project-1",
+                expectedRevision: 3,
+                ops: [
+                    { type: "select_nodes", ids: [] },
+                    { type: "set_viewport", viewport: { x: 0, y: 0, k: 1 } },
+                ],
+            }),
+        ).rejects.toThrow("不能超过 1 项");
     });
 });

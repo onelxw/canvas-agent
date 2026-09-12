@@ -25,7 +25,6 @@ const safeMetadataSchema = z
         vquality: z.string().max(50).optional(),
         generateAudio: z.string().max(20).optional(),
         watermark: z.string().max(20).optional(),
-        videoMode: z.enum(["frames", "reference"]).optional(),
         audioVoice: z.string().max(100).optional(),
         audioFormat: z.string().max(50).optional(),
         audioSpeed: z.string().max(50).optional(),
@@ -44,7 +43,18 @@ const nodePatchSchema = z
     .strict();
 
 export const internalCanvasOpSchema = z.discriminatedUnion("type", [
-    z.object({ type: z.literal("add_node"), nodeType: nodeTypeSchema, id: idSchema.optional(), title: z.string().max(500).optional(), position: positionSchema, width: z.number().finite().positive().optional(), height: z.number().finite().positive().optional(), metadata: safeMetadataSchema.optional() }).strict(),
+    z
+        .object({
+            type: z.literal("add_node"),
+            nodeType: nodeTypeSchema,
+            id: idSchema.optional(),
+            title: z.string().max(500).optional(),
+            position: positionSchema,
+            width: z.number().finite().positive().optional(),
+            height: z.number().finite().positive().optional(),
+            metadata: safeMetadataSchema.optional(),
+        })
+        .strict(),
     z.object({ type: z.literal("update_node"), id: idSchema, patch: nodePatchSchema.optional(), metadata: safeMetadataSchema.optional() }).strict(),
     z.object({ type: z.literal("delete_node"), ids: z.array(idSchema).min(1) }).strict(),
     z.object({ type: z.literal("delete_connections"), ids: z.array(idSchema).optional(), all: z.boolean().optional() }).strict(),
@@ -62,7 +72,6 @@ const generationOptionsSchema = {
     vquality: z.string().max(50).optional(),
     generateAudio: z.string().max(20).optional(),
     watermark: z.string().max(20).optional(),
-    videoMode: z.enum(["frames", "reference"]).optional(),
     audioVoice: z.string().max(100).optional(),
     audioFormat: z.string().max(50).optional(),
     audioSpeed: z.string().max(50).optional(),
@@ -73,10 +82,46 @@ export const internalAgentToolSchemas = {
     canvas_get_state: z.object({}).strict(),
     canvas_get_selection: z.object({}).strict(),
     canvas_apply_ops: z.object({ ...projectWriteSchema, ops: z.array(internalCanvasOpSchema).min(1) }).strict(),
-    canvas_create_text_nodes: z.object({ ...projectWriteSchema, items: z.array(z.object({ text: z.string().max(100_000), title: z.string().max(500).optional(), x: z.number().finite().optional(), y: z.number().finite().optional(), width: z.number().finite().positive().optional(), height: z.number().finite().positive().optional() }).strict()).min(1), x: z.number().finite().optional(), y: z.number().finite().optional(), gap: z.number().finite().nonnegative().optional(), direction: z.enum(["row", "column"]).optional() }).strict(),
-    canvas_create_generation_flow: z.object({ ...projectWriteSchema, prompt: z.string().max(100_000).optional(), promptNodeId: idSchema.optional(), title: z.string().max(500).optional(), mode: generationModeSchema.optional(), x: z.number().finite().optional(), y: z.number().finite().optional(), referenceNodeIds: z.array(idSchema).optional(), ...generationOptionsSchema }).strict(),
+    canvas_create_text_nodes: z
+        .object({
+            ...projectWriteSchema,
+            items: z
+                .array(
+                    z
+                        .object({
+                            text: z.string().max(100_000),
+                            title: z.string().max(500).optional(),
+                            x: z.number().finite().optional(),
+                            y: z.number().finite().optional(),
+                            width: z.number().finite().positive().optional(),
+                            height: z.number().finite().positive().optional(),
+                        })
+                        .strict(),
+                )
+                .min(1),
+            x: z.number().finite().optional(),
+            y: z.number().finite().optional(),
+            gap: z.number().finite().nonnegative().optional(),
+            direction: z.enum(["row", "column"]).optional(),
+        })
+        .strict(),
+    canvas_create_generation_flow: z
+        .object({
+            ...projectWriteSchema,
+            prompt: z.string().max(100_000).optional(),
+            promptNodeId: idSchema.optional(),
+            title: z.string().max(500).optional(),
+            mode: generationModeSchema.optional(),
+            x: z.number().finite().optional(),
+            y: z.number().finite().optional(),
+            referenceNodeIds: z.array(idSchema).optional(),
+            ...generationOptionsSchema,
+        })
+        .strict(),
     canvas_update_node: z.object({ ...projectWriteSchema, id: idSchema, patch: nodePatchSchema.optional(), metadata: safeMetadataSchema.optional() }).strict(),
-    canvas_move_nodes: z.object({ ...projectWriteSchema, items: z.array(z.object({ id: idSchema, x: z.number().finite().optional(), y: z.number().finite().optional(), dx: z.number().finite().optional(), dy: z.number().finite().optional() }).strict()).min(1) }).strict(),
+    canvas_move_nodes: z
+        .object({ ...projectWriteSchema, items: z.array(z.object({ id: idSchema, x: z.number().finite().optional(), y: z.number().finite().optional(), dx: z.number().finite().optional(), dy: z.number().finite().optional() }).strict()).min(1) })
+        .strict(),
     canvas_resize_node: z.object({ ...projectWriteSchema, id: idSchema, width: z.number().finite().positive(), height: z.number().finite().positive(), freeResize: z.boolean().optional() }).strict(),
     canvas_delete_nodes: z.object({ ...projectWriteSchema, ids: z.array(idSchema).min(1) }).strict(),
     canvas_connect_nodes: z.object({ ...projectWriteSchema, connections: z.array(z.object({ fromNodeId: idSchema, toNodeId: idSchema }).strict()).min(1) }).strict(),

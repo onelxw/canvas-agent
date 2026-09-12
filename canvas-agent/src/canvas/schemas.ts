@@ -74,7 +74,6 @@ const generationOptionsSchema = z.object({
     vquality: z.string().optional(),
     generateAudio: z.string().optional(),
     watermark: z.string().optional(),
-    videoMode: z.string().optional(),
     audioVoice: z.string().optional(),
     audioFormat: z.string().optional(),
     audioSpeed: z.string().optional(),

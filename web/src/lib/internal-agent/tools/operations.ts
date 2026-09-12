@@ -29,12 +29,14 @@ export function buildInternalAgentCanvasOps(name: string, input: ToolInput, snap
         });
     }
     if (name === "canvas_resize_node") {
-        return [{
-            type: "update_node",
-            id: String(input.id),
-            patch: { width: Number(input.width), height: Number(input.height) },
-            metadata: typeof input.freeResize === "boolean" ? { freeResize: input.freeResize } : undefined,
-        }];
+        return [
+            {
+                type: "update_node",
+                id: String(input.id),
+                patch: { width: Number(input.width), height: Number(input.height) },
+                metadata: typeof input.freeResize === "boolean" ? { freeResize: input.freeResize } : undefined,
+            },
+        ];
     }
     if (name === "canvas_delete_nodes") return [{ type: "delete_node", ids: input.ids as string[] }];
     if (name === "canvas_connect_nodes") {
@@ -89,14 +91,18 @@ function createGenerationFlow(input: ToolInput, snapshot: CanvasAgentSnapshot): 
     const sourceTextId = promptNodeId || textId;
     const tokens = [`@[node:${sourceTextId}]`, ...referenceNodeIds.map((id) => `@[node:${id}]`)];
     return [
-        ...(!promptNodeId ? [{
-            type: "add_node",
-            id: textId,
-            nodeType: "text",
-            title: typeof input.title === "string" ? input.title : "提示词",
-            position: { x, y },
-            metadata: { content: prompt, status: "success", fontSize: 14 },
-        } satisfies CanvasAgentOp] : []),
+        ...(!promptNodeId
+            ? [
+                  {
+                      type: "add_node",
+                      id: textId,
+                      nodeType: "text",
+                      title: typeof input.title === "string" ? input.title : "提示词",
+                      position: { x, y },
+                      metadata: { content: prompt, status: "success", fontSize: 14 },
+                  } satisfies CanvasAgentOp,
+              ]
+            : []),
         {
             type: "add_node",
             id: configId,
@@ -116,7 +122,6 @@ function createGenerationFlow(input: ToolInput, snapshot: CanvasAgentSnapshot): 
                 vquality: input.vquality,
                 generateAudio: input.generateAudio,
                 watermark: input.watermark,
-                videoMode: input.videoMode,
                 audioVoice: input.audioVoice,
                 audioFormat: input.audioFormat,
                 audioSpeed: input.audioSpeed,

@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import i18n from "@/i18n";
 import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio } from "@/lib/media-size";
+import { buildMinimaxH3RequestBody, isMinimaxH3Model, minimaxH3Kind } from "@/lib/minimax-h3-video";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
 import { boolConfig, buildApiUrl, modelOptionName, resolveModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
@@ -17,6 +18,16 @@ type ApiEnvelope<T> = T | { code?: number | string; data?: T | null; msg?: strin
 type RequestOptions = { signal?: AbortSignal };
 type VideoMediaOptions = RequestOptions & { videos?: ReferenceVideo[]; audios?: ReferenceAudio[] };
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
+const h3Text = (key: keyof typeof H3_ERRORS) => H3_ERRORS[key][i18n.language.startsWith("zh") ? "zh" : "en"];
+const H3_ERRORS = {
+    videoUnsupported: { zh: "MiniMax H3 不支持参考视频", en: "MiniMax H3 does not support reference videos" },
+    textReferencesUnsupported: { zh: "文生视频模型只接受提示词，请移除参考图片和音频", en: "The text-to-video model only accepts a prompt. Remove reference images and audio." },
+    imageCount: { zh: "该模型需要 1～9 张参考图片", en: "This model requires 1–9 reference images" },
+    imageAudioUnsupported: { zh: "图生视频模型不支持参考音频", en: "The image-to-video model does not support reference audio" },
+    audioCount: { zh: "多图多音频模型需要 1～3 条参考音频", en: "The multi-image/multi-audio model requires 1–3 reference audio files" },
+    publicAudioRequired: { zh: "MiniMax H3 的参考音频必须是公网 HTTP/HTTPS 地址", en: "MiniMax H3 reference audio must use a public HTTP/HTTPS URL" },
+    imageUploadFailed: { zh: "本地参考图片上传失败", en: "Failed to upload the local reference image" },
+} as const;
 
 export type VideoGenerationResult = { blob?: Blob; url?: string; mimeType?: string };
 export type VideoGenerationTask = { id: string; provider: "openai" | "gemini" | "plugin"; model: string };
@@ -54,7 +65,7 @@ export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGe
         if (state.status === "completed") return state.result;
         if (state.status === "failed") throw videoTaskFailed(state.error);
         if (attempt === 119) throw new Error(apiText("videoTimeout", { provider: "" }));
-        await delay(2500, options?.signal);
+        await delay(isMinimaxH3Model(task.model) ? 10000 : 2500, options?.signal);
     }
     throw new Error(apiText("videoTimeout", { provider: "" }));
 }
@@ -75,6 +86,7 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
     const script = resolveModelScript(config, selectedModel);
     if (script) return createPluginVideoTask(requestConfig, selectedModel, script, prompt, references, options);
     assertVideoConfig(requestConfig, requestConfig.model);
+    if (isMinimaxH3Model(selectedModel)) return createMinimaxH3VideoTask(requestConfig, selectedModel, prompt, references, options);
     if (requestConfig.apiFormat === "gemini") return createGeminiVideoTask(requestConfig, selectedModel, prompt, references, options);
     return createOpenAIVideoTask(requestConfig, selectedModel, prompt, references, options);
 }
@@ -177,6 +189,49 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
     }
 }
 
+async function createMinimaxH3VideoTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
+    const kind = minimaxH3Kind(model);
+    const videos = options?.videos || [];
+    const audios = options?.audios || [];
+    if (!prompt.trim()) throw new Error(apiText("videoPromptRequired"));
+    if (videos.length) throw new Error(h3Text("videoUnsupported"));
+    if (kind === "text" && (references.length || audios.length)) throw new Error(h3Text("textReferencesUnsupported"));
+    if ((kind === "image" || kind === "multi") && (references.length < 1 || references.length > 9)) throw new Error(h3Text("imageCount"));
+    if (kind === "image" && audios.length) throw new Error(h3Text("imageAudioUnsupported"));
+    if (kind === "multi" && (audios.length < 1 || audios.length > 3)) throw new Error(h3Text("audioCount"));
+
+    const imageUrls = await Promise.all(references.map((image) => minimaxH3ImageUrl(image, options)));
+    const audioUrls = audios.map((audio) => {
+        if (!isPublicMediaUrl(audio.url || "")) throw new Error(h3Text("publicAudioRequired"));
+        return audio.url;
+    });
+    const body = buildMinimaxH3RequestBody({ model, prompt, seconds: config.videoSeconds, resolution: config.vquality, size: config.size, imageUrls, audioUrls });
+    try {
+        const created = unwrapVideoResponse((await axios.post<ApiVideoResponse>(aiApiUrl(config, "/videos"), body, { headers: aiHeaders(config, "application/json"), signal: options?.signal })).data);
+        if (!created.id) throw new Error(apiText("noVideoTaskId"));
+        return { id: created.id, provider: "openai", model };
+    } catch (error) {
+        throw new Error(readAxiosError(error, apiText("videoTaskCreateFailed")));
+    }
+}
+
+async function minimaxH3ImageUrl(image: ReferenceImage, options?: RequestOptions) {
+    const original = image.url || image.dataUrl;
+    if (isPublicMediaUrl(original)) return original;
+    const dataUrl = await imageToDataUrl(image);
+    if (isPublicMediaUrl(dataUrl)) return dataUrl;
+    const file = dataUrlToFile({ ...image, dataUrl });
+    const form = new FormData();
+    form.append("file", file, file.name || "reference.png");
+    try {
+        const response = await axios.post<{ url?: string }>("https://imageproxy.zhongzhuan.chat/api/upload", form, { signal: options?.signal });
+        if (!isPublicMediaUrl(response.data?.url || "")) throw new Error(h3Text("imageUploadFailed"));
+        return response.data.url!;
+    } catch (error) {
+        throw new Error(readAxiosError(error, h3Text("imageUploadFailed")));
+    }
+}
+
 async function pollOpenAIVideoTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationTaskState> {
     try {
         const video = unwrapVideoResponse((await axios.get<ApiVideoResponse>(aiApiUrl(config, `/videos/${task.id}`), { headers: aiHeaders(config), signal: options?.signal })).data);
@@ -220,16 +275,25 @@ async function createGeminiVideoTask(config: AiConfig, model: string, prompt: st
     if (videos[0]) instance.video = await fileToGeminiInline(videos[0]);
     if (audios[0]) instance.audio = await fileToGeminiInline(audios[0]);
     try {
-        const created = unwrapEnvelope((await axios.post<ApiEnvelope<GeminiVideoOperation>>(geminiVideoUrl(config, model, "predictLongRunning"), {
-            instances: [instance],
-            parameters: {
-                aspectRatio: videoAspectRatio(config.size),
-                durationSeconds: Number(normalizeVideoSeconds(config.videoSeconds)) || 8,
-                resolution: normalizeVideoResolution(config.vquality),
-                generateAudio: boolConfig(config.videoGenerateAudio, true),
-                addWatermark: boolConfig(config.videoWatermark, false),
-            },
-        }, { headers: geminiVideoHeaders(config), signal: options?.signal })).data, apiText("noVideoTask"));
+        const created = unwrapEnvelope(
+            (
+                await axios.post<ApiEnvelope<GeminiVideoOperation>>(
+                    geminiVideoUrl(config, model, "predictLongRunning"),
+                    {
+                        instances: [instance],
+                        parameters: {
+                            aspectRatio: videoAspectRatio(config.size),
+                            durationSeconds: Number(normalizeVideoSeconds(config.videoSeconds)) || 8,
+                            resolution: normalizeVideoResolution(config.vquality),
+                            generateAudio: boolConfig(config.videoGenerateAudio, true),
+                            addWatermark: boolConfig(config.videoWatermark, false),
+                        },
+                    },
+                    { headers: geminiVideoHeaders(config), signal: options?.signal },
+                )
+            ).data,
+            apiText("noVideoTask"),
+        );
         if (!created.name) throw new Error(apiText("noVideoTaskId"));
         return { id: created.name, provider: "gemini", model };
     } catch (error) {
@@ -363,17 +427,8 @@ function readApiErrorMessage(value: unknown): string {
     if (typeof value !== "object") return "";
     const payload = value as { msg?: unknown; message?: unknown; error?: unknown; detail?: unknown };
     // error may be a string or an object containing a message.
-    const errorMsg =
-        typeof payload.error === "string"
-            ? payload.error
-            : (payload.error as { message?: unknown })?.message;
-    return (
-        readApiErrorMessage(payload.msg) ||
-        readApiErrorMessage(payload.message) ||
-        readApiErrorMessage(errorMsg) ||
-        readApiErrorMessage(payload.detail) ||
-        ""
-    );
+    const errorMsg = typeof payload.error === "string" ? payload.error : (payload.error as { message?: unknown })?.message;
+    return readApiErrorMessage(payload.msg) || readApiErrorMessage(payload.message) || readApiErrorMessage(errorMsg) || readApiErrorMessage(payload.detail) || "";
 }
 
 function readAxiosError(error: unknown, fallback: string) {
