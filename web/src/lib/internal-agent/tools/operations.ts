@@ -116,6 +116,7 @@ function createGenerationFlow(input: ToolInput, snapshot: CanvasAgentSnapshot): 
                 vquality: input.vquality,
                 generateAudio: input.generateAudio,
                 watermark: input.watermark,
+                videoMode: input.videoMode,
                 audioVoice: input.audioVoice,
                 audioFormat: input.audioFormat,
                 audioSpeed: input.audioSpeed,

@@ -59,11 +59,12 @@ describe("internal Agent canvas executor", () => {
     it("reuses an existing text node when creating a generation flow", () => {
         const { current } = fixture();
         const ops = buildInternalAgentCanvasOps("canvas_create_generation_flow", {
-            promptNodeId: "n1", mode: "video", referenceNodeIds: ["n1"],
+            promptNodeId: "n1", mode: "video", videoMode: "reference", referenceNodeIds: ["n1"],
         }, current());
         expect(ops.some((op) => op.type === "add_node" && op.nodeType === "text")).toBe(false);
         expect(ops.some((op) => op.type === "connect_nodes" && op.fromNodeId === "n1")).toBe(true);
         expect(ops.filter((op) => op.type === "connect_nodes")).toHaveLength(1);
+        expect(ops.some((op) => op.type === "add_node" && op.nodeType === "config" && op.metadata?.videoMode === "reference")).toBe(true);
     });
 
     it("enforces the operation limit", async () => {
