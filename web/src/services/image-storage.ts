@@ -2,6 +2,7 @@ import localforage from "localforage";
 
 import { nanoid } from "nanoid";
 import i18n from "@/i18n";
+import { createImageThumbnail } from "@/lib/image-thumbnail";
 
 export type UploadedImage = {
     url: string;
@@ -13,14 +14,23 @@ export type UploadedImage = {
 };
 
 const store = localforage.createInstance({ name: "infinite-canvas", storeName: "image_files" });
+const previewStore = localforage.createInstance({ name: "infinite-canvas", storeName: "image_previews" });
 const imageLogStore = localforage.createInstance({ name: "infinite-canvas", storeName: "image_generation_logs" });
 const videoLogStore = localforage.createInstance({ name: "infinite-canvas", storeName: "video_generation_logs" });
 const objectUrls = new Map<string, string>();
+const previewUrls = new Map<string, string | undefined>();
+const previewTasks = new Map<string, Promise<string | undefined>>();
+const previewListeners = new Set<() => void>();
+let previewRevision = 0;
+let previewQueue: Promise<unknown> = Promise.resolve();
+const IMAGE_PREVIEW_VERSION = 1;
 const IMAGE_DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 const IMAGE_REMOTE_LOAD_TIMEOUT_MS = 10 * 60_000;
 const IMAGE_DECODE_TIMEOUT_MS = 10_000;
 const IMAGE_RESPONSE_ERROR = "ImageResponseError";
 const IMAGE_TIMEOUT_ERROR = "ImageTimeoutError";
+
+type StoredImagePreview = { version: number; blob?: Blob };
 
 type ImageReadOptions = { signal?: AbortSignal };
 
@@ -49,9 +59,13 @@ async function storeImage(blob: Blob, options?: ImageReadOptions): Promise<Uploa
         await store.setItem(storageKey, blob);
         throwIfAborted(options?.signal);
         objectUrls.set(storageKey, url);
+        await ensureImagePreview(storageKey);
+        throwIfAborted(options?.signal);
         return { url, storageKey, width: meta.width, height: meta.height, bytes: blob.size, mimeType: blob.type.startsWith("image/") ? blob.type : "" };
     } catch (error) {
         URL.revokeObjectURL(url);
+        objectUrls.delete(storageKey);
+        await deleteImagePreview(storageKey);
         await store.removeItem(storageKey).catch(() => undefined);
         throw error;
     }
@@ -131,6 +145,7 @@ function throwIfAborted(signal?: AbortSignal) {
 
 export async function resolveImageUrl(storageKey?: string, fallback = "") {
     if (!storageKey) return fallback;
+    void ensureImagePreview(storageKey);
     const cached = objectUrls.get(storageKey);
     if (cached) return cached;
     const blob = await store.getItem<Blob>(storageKey);
@@ -144,8 +159,77 @@ export async function getImageBlob(storageKey: string) {
     return store.getItem<Blob>(storageKey);
 }
 
+// 缩略图按图片的 storageKey 另存一份 WebP，只放在本地 IndexedDB 里，不写进节点数据，也不参与导出和 WebDAV 同步。
+export function previewUrlFor(storageKey?: string) {
+    return storageKey ? previewUrls.get(storageKey) : undefined;
+}
+
+// 缩略图在后台补，生成完成后再让用到它的界面重渲染一次。
+export function subscribeImagePreviews(listener: () => void) {
+    previewListeners.add(listener);
+    return () => {
+        previewListeners.delete(listener);
+    };
+}
+
+export function getImagePreviewRevision() {
+    return previewRevision;
+}
+
+export async function ensureImagePreview(storageKey?: string) {
+    if (!storageKey) return undefined;
+    if (previewUrls.has(storageKey)) return previewUrls.get(storageKey);
+    const pending = previewTasks.get(storageKey);
+    if (pending) return pending;
+    // 恢复和生成都按图片去重、串行执行，避免同一图片反复解码。
+    const task = previewQueue
+        .then(async () => {
+            const stored = await previewStore.getItem<StoredImagePreview>(storageKey).catch(() => null);
+            if (stored?.version === IMAGE_PREVIEW_VERSION) {
+                if (stored.blob) return cacheImagePreview(storageKey, stored.blob);
+                previewUrls.set(storageKey, undefined);
+                return undefined;
+            }
+            const original = await getImageBlob(storageKey);
+            return original ? storeImagePreview(storageKey, original) : undefined;
+        })
+        .catch(() => undefined)
+        .finally(() => previewTasks.delete(storageKey));
+    previewTasks.set(storageKey, task);
+    previewQueue = task;
+    return task;
+}
+
+async function storeImagePreview(storageKey: string, original: Blob) {
+    const preview = await createImageThumbnail(original).catch(() => undefined);
+    await previewStore.setItem<StoredImagePreview>(storageKey, { version: IMAGE_PREVIEW_VERSION, blob: preview }).catch(() => undefined);
+    if (!preview) previewUrls.set(storageKey, undefined);
+    return preview ? cacheImagePreview(storageKey, preview) : undefined;
+}
+
+function cacheImagePreview(storageKey: string, preview: Blob) {
+    const cached = previewUrls.get(storageKey);
+    if (cached) return cached;
+    const url = URL.createObjectURL(preview);
+    previewUrls.set(storageKey, url);
+    previewRevision += 1;
+    previewListeners.forEach((listener) => listener());
+    return url;
+}
+
+async function deleteImagePreview(storageKey: string) {
+    // 等待正在生成的缓存，避免删除后异步任务重新写回。
+    await previewTasks.get(storageKey);
+    const url = previewUrls.get(storageKey);
+    if (url) URL.revokeObjectURL(url);
+    previewUrls.delete(storageKey);
+    await previewStore.removeItem(storageKey).catch(() => undefined);
+}
+
 export async function setImageBlob(storageKey: string, blob: Blob) {
+    await deleteImagePreview(storageKey);
     await store.setItem(storageKey, blob);
+    await ensureImagePreview(storageKey);
     const url = URL.createObjectURL(blob);
     objectUrls.set(storageKey, url);
     return url;
@@ -163,6 +247,7 @@ export async function deleteStoredImages(keys: Iterable<string>) {
             const url = objectUrls.get(key);
             if (url) URL.revokeObjectURL(url);
             objectUrls.delete(key);
+            await deleteImagePreview(key);
             await store.removeItem(key);
         }),
     );
@@ -182,7 +267,11 @@ export async function cleanupUnusedImages(usedData: unknown) {
     await store.iterate((_value, key) => {
         if (!usedKeys.has(key)) unused.push(key);
     });
-    await deleteStoredImages(unused);
+    const orphanPreviews: string[] = [];
+    await previewStore.iterate((_value, key) => {
+        if (!usedKeys.has(key)) orphanPreviews.push(key);
+    });
+    await Promise.all([deleteStoredImages(unused), ...orphanPreviews.map(deleteImagePreview)]);
 }
 
 export function collectImageStorageKeys(value: unknown, keys = new Set<string>()) {
