@@ -110,7 +110,7 @@ export async function syncAppDataToWebdav(config: WebdavSyncConfig, onProgress?:
             label: "生图工作台",
             emptyData: { logs: [] },
             localData: async () => ({ logs: await readStoredLogs(imageLogStore) }),
-            mergeData: (local, remote) => ({ logs: mergeById(local.logs, remote.logs, "createdAt") }),
+            mergeData: (local, remote) => ({ logs: mergeById(local.logs, remote.logs, "updatedAt") }),
             applyData: async (data) => replaceStoredLogs(imageLogStore, data.logs),
         }),
         syncDomain<LogDomainData>(config, onProgress, {
