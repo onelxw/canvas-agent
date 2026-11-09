@@ -52,13 +52,15 @@ export async function requestVideoGeneration(config: AiConfig, prompt: string, r
 }
 
 export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationResult> {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
+    const intervalMs = task.provider === "h3" && !options?.workbench ? 10000 : 2500;
+    const maxAttempts = 20 * 60 * 1000 / intervalMs;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const state = await pollVideoGenerationTask(config, task, options);
         if (state.status === "completed") return state.result;
         if (state.status === "failed") throw videoTaskFailed(state.error);
-        if (attempt === 119) throw new Error("已停止本地等待，任务 ID 已保留，请继续查询；上游任务未取消");
-        await delay(task.provider === "h3" && !options?.workbench ? 10000 : 2500, options?.signal);
+        if (attempt === maxAttempts - 1) throw new Error("已停止本地等待，任务 ID 已保留，请继续查询；上游任务未取消");
+        await delay(intervalMs, options?.signal);
     }
     throw new Error(apiText("videoTimeout", { provider: "" }));
 }
