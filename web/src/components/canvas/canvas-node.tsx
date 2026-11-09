@@ -506,9 +506,10 @@ function LoadingContent({ theme }: Pick<NodeContentRendererProps, "theme">) {
 
 function ErrorContent({ node, theme, onRetry }: Pick<NodeContentRendererProps, "node" | "theme" | "onRetry">) {
     const { t } = useTranslation();
+    const resumable = node.type === CanvasNodeType.Video && node.metadata?.videoTaskId && !node.metadata.videoTaskFailed;
     return (
         <div className="flex max-w-[260px] flex-col items-center gap-3 px-5 text-center">
-            <div className="text-xs leading-5 text-red-300">{node.metadata?.errorDetails || t("canvas.node.failed")}</div>
+            <div className="text-xs leading-5 text-red-300">{resumable ? "本地等待已停止，上游任务仍保留。" : ""}{node.metadata?.errorDetails || t("canvas.node.failed")}</div>
             <button
                 type="button"
                 className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition hover:scale-[1.02]"
@@ -520,7 +521,7 @@ function ErrorContent({ node, theme, onRetry }: Pick<NodeContentRendererProps, "
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 <RefreshCw className="size-3.5" />
-                {t("canvas.node.retry")}
+                {resumable ? t("canvas.nodeToolbar.queryVideoTask") : t("canvas.node.retry")}
             </button>
         </div>
     );

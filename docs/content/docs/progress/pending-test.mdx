@@ -5,6 +5,22 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+## 视频网关 JSON 协议（待用户验证）
+
+- 模型分流：配置自定义脚本时仍优先执行；无脚本时去除内部渠道前缀，只精确匹配三个 MiniMax H3 模型，其余模型一律走新协议，包括 apiFormat 为 Gemini 的模型。Agent 的画布生成工具和工作台命令沿用相同入口，不自行选择协议。
+- H3 回归：三个模型的 duration、resolution、aspect_ratio 转换、reference_images/reference_audios、图片/音频/视频校验、原图床上传及专用参数限制保持；带 H3 关键词但非三个完整名称的模型使用通用参数。自定义脚本及其模板仍可使用自己的 multipart/Gemini 协议。
+- 普通视频提交：POST /v1/videos，JSON 仅包含对外 model、prompt、数字 seconds、比例 aspect_ratio、清晰度 resolution 及非空 references；当前没有扩展参数，因此省略 metadata。不发送 duration、size、resolution_name、文件或 H3 引用字段。
+- 参考素材：通用参数提供首尾帧和普通参考模式；前两张图片按 first_frame/last_frame，超过两张沿用自动普通参考，普通参考中的图片及视频/音频使用 reference，并保持各素材列表原有顺序。已有公网 URL 直接使用，视频生成由协议入口读取图片，已有公网 URL 不强制先转 Data URL；本地图片及视频复用 https://imageproxy.zhongzhuan.chat/api/upload，以 multipart file 字段上传且不带鉴权，成功后把公网 URL 放入 JSON；已有公网图片/视频 URL 时不重复上传。视频从现有本地媒体存储读取文件，不能把存储操作当作公网上传。图床拒绝音频，本地音频在上传图片/视频及创建生成任务前阻止提交；音频上传仍在 TODO。
+- 新协议网关插件需配套：支持上述请求字段，references 为双方约定的网关扩展（不是 New API 官方通用标准）；返回网关 id，查询支持 queued/in_progress/completed/failed/unknown，成功用 result_url，失败用 error.code/error.message；无 result_url 时提供 /v1/videos/{id}/content 二进制。浏览器需能跨域查询和下载。上游格式转换在服务端插件完成，本次未实现服务端插件。
+- 状态与成品：仅 completed 进入成品获取，URL 或 progress=100 不表示成功；result_url 下载不附带本站 API Key，无 URL 才带 Key 请求 content。完成标记与结果 URL 写入现有本地历史；下载或本地保存失败后只重新获取，不重新 POST。
+- 任务恢复：画布和视频工作台保存 id 与明确的 h3/gateway/plugin 类型，不保存 API Key；刷新可继续未完成查询，停止等待的工作台记录可手动继续，画布未完成任务沿用刷新自动查询。旧格式任务不迁移、不猜测协议。
+- 异常与重复提交：unknown 继续查询；网络异常、查询超时或本地等待结束保留 ID，不标为上游失败；界面区分“继续查询 / 重新获取”和“重新生成”，前者不 POST，只有明确重新生成才创建新任务。failed 明确表示上游失败并保留 ID；脚本一次性执行结果沿用现有行为，不承诺脚本可刷新恢复轮询。
+- 停止说明：画布停止仅中断本地等待，不表示上游任务取消，没有调用取消接口。
+- 用户已确认边界：普通模型 2.5 秒间隔、最多 120 次查询（约 5 分钟加请求耗时）；H3 保持画布 10 秒、工作台 2.5 秒与各 120 次。单次请求仍无显式超时；查询/下载异常立即停止本地等待，不新增自动重试、并发或上传大小限制；脚本边界不变。画布与工作台共用轮询实现。
+- 上传接口专项实测（用户明确授权）：使用临时生成的 0.5 秒黑色视频 MP4（1671 字节）及静音 MP3（4615 字节）；MP4 上传 HTTP 200，返回地址下载 HTTP 200、video/mp4，SHA-256 与原文件一致；MP3 返回 HTTP 400，提示只支持图片或视频文件。该结果仅确认小样本的接口接受与下载，不代表所有视频格式、大文件、浏览器 CORS 或上游生成已验收。
+- 未运行项目测试、语法检查、编译、构建或实际收费生成请求，需用户自行验收以上路径。
+
+
 The current release needs manual verification in these areas:
 
 - Local WebP previews: canvas image nodes and expanded alternatives, element lists, reference bars, asset cards/picker, and image/video workbench reference strips should use previews capped at 768px. Image Studio must retain concurrent batches and show preview thumbnails for results from every batch. Small images, remote-only images and custom covers should fall back correctly; full-size preview, high zoom, downloads, exports and generation references must use originals. Refresh, asset import and WebDAV restore should regenerate/reuse local previews; exported canvas/asset/history data and synced files must not contain preview blobs or URLs. Deletion must remove previews even while they are being generated. Automated checks cover source selection, proportions, cache reuse/deduplication, deletion during generation and replacement of originals.

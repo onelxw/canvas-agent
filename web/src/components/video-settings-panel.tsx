@@ -7,7 +7,7 @@ import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { type CanvasTheme } from "@/lib/canvas-theme";
 import { clampMinimaxH3Seconds, isMinimaxH3Model } from "@/lib/minimax-h3-video";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio, parseVideoResolution, VIDEO_SECONDS_MAX, VIDEO_SECONDS_MIN, videoRatioOptions } from "@/lib/media-size";
-import { modelOptionName, type AiConfig } from "@/stores/use-config-store";
+import { resolveModelScript, type AiConfig } from "@/stores/use-config-store";
 
 const standardResolutionOptions = [
     { value: "480", label: "480p" },
@@ -32,16 +32,17 @@ export const videoSecondsRange = { min: VIDEO_SECONDS_MIN, max: VIDEO_SECONDS_MA
 
 type VideoSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark", value: string) => void;
+    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark" | "videoMode", value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
     variant?: "detailed" | "workbench";
 };
 
-export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
+export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5", variant }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
-    const h3 = isMinimaxH3Model(modelOptionName(config.videoModel)) || isMinimaxH3Model(modelOptionName(config.model));
+    const model = variant === "workbench" ? config.videoModel || config.model : config.model || config.videoModel;
+    const h3 = !resolveModelScript(config, model) && isMinimaxH3Model(model);
     const resolutionOptions = h3 ? h3ResolutionOptions : standardResolutionOptions;
     const ratioItems = h3 ? h3RatioOptions : videoRatioOptions;
     const resolution = normalizeResolutionForOptions(config.vquality, resolutionOptions);
@@ -86,6 +87,7 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                         />
                     </SelectSetting>
                 </div>
+                {!h3 ? <SelectSetting title="参考模式" color={theme.node.muted}><Select className="w-full" value={config.videoMode === "reference" ? "reference" : "frames"} options={[{ value: "frames", label: "首尾帧（超过两张自动使用普通参考）" }, { value: "reference", label: "普通参考" }]} onChange={(value) => onConfigChange("videoMode", value)} /></SelectSetting> : null}
                 <SelectSetting title={t("settingsPanels.video.seconds")} color={theme.node.muted}>
                     <div className="flex items-center gap-3" onMouseDown={(event) => event.stopPropagation()}>
                         <Slider className="min-w-0 flex-1" min={secondsMin} max={secondsMax} step={1} value={seconds} onChange={(value) => onConfigChange("videoSeconds", String(Array.isArray(value) ? value[0] : value))} />
