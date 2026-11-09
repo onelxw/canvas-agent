@@ -10,7 +10,7 @@ description: Implemented changes that still need manual verification
 - 模型分流：配置自定义脚本时仍优先执行；无脚本时去除内部渠道前缀，只精确匹配三个 MiniMax H3 模型，其余模型一律走新协议，包括 apiFormat 为 Gemini 的模型。Agent 的画布生成工具和工作台命令沿用相同入口，不自行选择协议。
 - H3 回归：三个模型的 duration、resolution、aspect_ratio 转换、reference_images/reference_audios、图片/音频/视频校验、原图床上传及专用参数限制保持；带 H3 关键词但非三个完整名称的模型使用通用参数。自定义脚本及其模板仍可使用自己的 multipart/Gemini 协议。
 - 普通视频提交：POST /v1/videos，JSON 仅包含对外 model、prompt、数字 seconds、比例 aspect_ratio、清晰度 resolution 及非空 references；当前没有扩展参数，因此省略 metadata。不发送 duration、size、resolution_name、文件或 H3 引用字段。
-- 参考素材：通用参数提供首尾帧和普通参考模式；前两张图片按 first_frame/last_frame，超过两张沿用自动普通参考，普通参考中的图片及视频/音频使用 reference，并保持各素材列表原有顺序。已有公网 URL 直接使用，视频生成由协议入口读取图片，已有公网 URL 不强制先转 Data URL；本地图片及视频复用 https://imageproxy.zhongzhuan.chat/api/upload，以 multipart file 字段上传且不带鉴权，成功后把公网 URL 放入 JSON；已有公网图片/视频 URL 时不重复上传。视频从现有本地媒体存储读取文件，不能把存储操作当作公网上传。图床拒绝音频，本地音频在上传图片/视频及创建生成任务前阻止提交；音频上传仍在 TODO。
+- 参考素材：通用参数提供首尾帧和普通参考模式；前两张图片按 first_frame/last_frame，超过两张沿用自动普通参考，普通参考中的图片及视频/音频使用 reference，并保持各素材列表原有顺序。已有公网 URL 直接使用，视频生成由协议入口读取图片，已有公网 URL 不强制先转 Data URL；本地图片及视频复用 https://imageproxy.zhongzhuan.chat/api/upload，以 multipart file 字段上传且不带鉴权，成功后把公网 URL 放入 JSON；已有公网图片/视频 URL 时不重复上传。视频从现有本地媒体存储读取文件，不能把存储操作当作公网上传。普通模型的本地音频从现有浏览器媒体存储读取文件后，以 multipart file 字段上传到 https://files.sudashuiapi.com；已有公网音频 URL 直接使用。上传成功优先使用 proxyUrl，否则使用 url，并以 type=audio、role=reference 加入 JSON，保持音频原有顺序；音频上传失败不得创建生成任务。
 - 新协议网关插件需配套：支持上述请求字段，references 为双方约定的网关扩展（不是 New API 官方通用标准）；返回网关 id，查询支持 queued/in_progress/completed/failed/unknown，成功用 result_url，失败用 error.code/error.message；无 result_url 时提供 /v1/videos/{id}/content 二进制。浏览器需能跨域查询和下载。上游格式转换在服务端插件完成，本次未实现服务端插件。
 - 状态与成品：仅 completed 进入成品获取，URL 或 progress=100 不表示成功；result_url 下载不附带本站 API Key，无 URL 才带 Key 请求 content。完成标记与结果 URL 写入现有本地历史；下载或本地保存失败后只重新获取，不重新 POST。
 - 任务恢复：画布和视频工作台保存 id 与明确的 h3/gateway/plugin 类型，不保存 API Key；刷新可继续未完成查询，停止等待的工作台记录可手动继续，画布未完成任务沿用刷新自动查询。旧格式任务不迁移、不猜测协议。
@@ -18,6 +18,7 @@ description: Implemented changes that still need manual verification
 - 停止说明：画布停止仅中断本地等待，不表示上游任务取消，没有调用取消接口。
 - 视频等待时长调整：普通模型及 H3 视频工作台保持 2.5 秒间隔，最多查询 480 次（约 20 分钟加请求耗时）；H3 画布保持 10 秒间隔、最多 120 次。需验证 queued/in_progress/unknown 不会在原约 5 分钟时停止，达到新等待次数后保留任务 ID，手动继续查询不重新 POST。单次请求仍无显式超时；查询/下载异常立即停止本地等待，不新增自动重试、并发或上传大小限制；自定义脚本的超时逻辑不变。画布与工作台共用轮询实现。
 - 上传接口专项实测（用户明确授权）：使用临时生成的 0.5 秒黑色视频 MP4（1671 字节）及静音 MP3（4615 字节）；MP4 上传 HTTP 200，返回地址下载 HTTP 200、video/mp4，SHA-256 与原文件一致；MP3 返回 HTTP 400，提示只支持图片或视频文件。该结果仅确认小样本的接口接受与下载，不代表所有视频格式、大文件、浏览器 CORS 或上游生成已验收。
+- 音频上传服务专项实测（用户明确授权）：POST https://files.sudashuiapi.com，multipart file 字段；无鉴权返回 401，用户提供的零余额上传 Key 可成功上传 MP3（4615 字节）和 WAV（44178 字节），均返回 200。返回的 url 及 proxyUrl 不带 Key 下载均为 200、正确音频 MIME，SHA-256 与原样本一致。url 为约 2 小时有效的签名直链；proxyUrl 的长期有效性未验证。使用 localhost:3020 Origin 的上传响应及 OPTIONS 预检允许跨域与 Authorization，代理下载响应允许跨域；直链下载未返回允许跨域头。后续已按用户明确授权将独立上传专用 Key 写入公开前端，仅用于此音频上传接口，不使用生成 Key，不把上传 Key 写入任务历史或其他站点请求。该服务当前已接入普通视频模型；未新增前端大小限制、超时或自动重试，服务端拒绝时提示上传失败。图片/视频图床、H3 的音频公网 URL 限制及自定义脚本请求保持不变。需用户验收画布本地 MP3/WAV、多音频顺序、已有公网地址不重复上传、取消/鉴权失败不提交生成；真实页面上传、大文件、代理地址长期有效性和上游生成尚未验证。
 - 未运行项目测试、语法检查、编译、构建或实际收费生成请求，需用户自行验收以上路径。
 
 

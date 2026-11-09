@@ -8,4 +8,3 @@ description: Planned follow-up work
 - After real-provider acceptance of the built-in Canvas Agent, remove the legacy Canvas Agent, MCP, Codex, and plugin path only with explicit user confirmation. Keep the legacy source during acceptance and never push to `upstream`.
 - Add attachments, canvas references, and controlled memory to the built-in Agent as needed, without exposing arbitrary network, script, or configuration-mutation tools.
 
-- 视频通用 JSON 协议的本地参考音频公网上传：已实测 imageproxy.zhongzhuan.chat 接受 MP4 并可原样下载，但拒绝 audio/mpeg（HTTP 400：只支持图片或视频文件）；本地图片与视频已复用该服务。音频需另行指定上传服务及行为边界，当前仅接受已有公网 HTTP/HTTPS URL，不把浏览器存储键或 blob URL 直接提交。

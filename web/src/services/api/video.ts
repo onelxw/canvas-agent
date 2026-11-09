@@ -17,6 +17,8 @@ type ApiVideoResponse = VideoResponse | { code?: number | string; data?: VideoRe
 type ApiEnvelope<T> = T | { code?: number | string; data?: T | null; msg?: string; message?: string; error?: { message?: string } };
 type RequestOptions = { signal?: AbortSignal; workbench?: boolean; onTaskUpdated?: (task: VideoGenerationTask) => void | Promise<void> };
 type VideoMediaOptions = RequestOptions & { videos?: ReferenceVideo[]; audios?: ReferenceAudio[] };
+// Public, upload-only key included in the frontend with the owner's explicit authorization.
+const AUDIO_UPLOAD_KEY = "sk-KsDzmyXxadBAMkh2GCib7EPyS29MEV1BvVWvsRIAE7wBUSxL";
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
 const h3Text = (key: keyof typeof H3_ERRORS) => H3_ERRORS[key][i18n.language.startsWith("zh") ? "zh" : "en"];
 const H3_ERRORS = {
@@ -164,15 +166,28 @@ function gatewayReferenceUrl(...values: Array<string | undefined>) {
             if ((url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password && host !== "localhost" && !host.endsWith(".localhost") && !host.endsWith(".local") && !/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[)/.test(host)) return value;
         } catch { /* Try the other original URL. */ }
     }
-    throw new Error("参考素材需要上游可访问的公网 HTTP/HTTPS URL；本地音频上传暂不支持，请提供公网音频 URL");
+    throw new Error("参考素材需要上游可访问的公网 HTTP/HTTPS URL");
+}
+
+async function referenceAudioPublicUrl(audio: ReferenceAudio, options?: RequestOptions) {
+    if (isPublicMediaUrl(audio.url)) return gatewayReferenceUrl(audio.url);
+    const file = await referenceMediaToFile(audio, "reference.mp3", "invalidReferenceAudio", options);
+    const form = new FormData();
+    form.append("file", file, file.name);
+    try {
+        const response = await axios.post<{ url?: string; proxyUrl?: string }>("https://files.sudashuiapi.com", form, {
+            headers: { Authorization: `Bearer ${AUDIO_UPLOAD_KEY}` },
+            signal: options?.signal,
+        });
+        return gatewayReferenceUrl(response.data.proxyUrl || response.data.url);
+    } catch (error) {
+        throw new Error(readAxiosError(error, "本地参考音频上传失败"));
+    }
 }
 
 async function createGatewayVideoTask(config: AiConfig, model: string, prompt: string, images: ReferenceImage[], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
     const mode = resolveVideoMode(config.videoMode, images.length);
-    // Reject local audio before uploading any files: the image/video host rejects audio.
-    const audioReferences: GatewayReference[] = [
-        ...(options?.audios || []).map((audio): GatewayReference => ({ type: "audio", role: "reference", url: gatewayReferenceUrl(audio.url) })),
-    ];
+    const audioReferences = await Promise.all((options?.audios || []).map(async (audio): Promise<GatewayReference> => ({ type: "audio", role: "reference", url: await referenceAudioPublicUrl(audio, options) })));
     const imageReferences = await Promise.all(images.map(async (image, index): Promise<GatewayReference> => {
         const original = [image.url, image.dataUrl].find((url) => url && isPublicMediaUrl(url));
         const url = gatewayReferenceUrl(original || await referenceImagePublicUrl(image, options));
