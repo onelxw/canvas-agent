@@ -5,6 +5,15 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+## Upstream v0.20.0 canvas interactions
+
+- Switch between element list and thumbnails and refresh to confirm persistence. Both views should retain group headers, collapse state, search/type filtering, batch selection, and export. Image thumbnails must reuse the local WebP cache; other types should use icons without filled backgrounds in both themes.
+- Hovering an image/video element should show its proportional original image or muted video preview over the canvas. Leaving, focusing an element, changing tabs/projects, closing the panel, entering batch selection, or opening a full preview should clear it. The overlay must not intercept canvas input, autoplay videos, or change the primary image or selection.
+- Center focus should be disabled without selection and focus the first selected node, including groups, while keeping open panels visible and zoom at or below 100%. Auto-center on select defaults off; enabling it should center after the prompt panel opens without interfering with dragging, range selection, context menus, or reference selection. Preferences should survive refresh and config import/export.
+- Regeneration defaults to creating a new node. Opting into overwrite should reuse image/video/audio/text nodes and preserve their group, inbound/outbound connections, and editor state without self-connections. The old image must not be implicitly used as a reference; explicit references must still work. Generation configuration nodes should continue creating result nodes.
+- Overwrite should clear stale media, batch/primary selections, and video task metadata before the new request. The first successful image should become primary; partial failures, retries, text alternatives, cancellation, and existing undo/redo must work. New H3/gateway tasks should save their own IDs and remain resumable. Duplicate first when the old output must be kept; a failed overwrite must not restore stale output.
+- Added regression cases for regeneration state cleanup, group/editor retention, and safe preference defaults. Tests, syntax checks, and builds have not been run under the project instructions.
+
 ## Upstream v0.20.0 selective fixes
 
 - Missing models must remain selected and block generation, retries, and video task recovery instead of silently falling back. Saving settings and refreshing must preserve an unavailable selection; rotating the key on the same channel must still work. New nodes and explicit capability changes should continue using the matching default model.

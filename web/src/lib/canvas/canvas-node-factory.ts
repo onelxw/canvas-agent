@@ -28,6 +28,15 @@ export function imageMetadata(image: UploadedImage): CanvasNodeMetadata {
     return { content: image.url, storageKey: image.storageKey, status: "success", naturalWidth: image.width, naturalHeight: image.height, bytes: image.bytes, mimeType: image.mimeType };
 }
 
+// Keep canvas placement and editor state, but discard the previous output and task metadata.
+export function replaceGeneratedNode(node: CanvasNodeData, result: CanvasNodeData): CanvasNodeData {
+    return {
+        ...node,
+        ...result,
+        metadata: { groupId: node.metadata?.groupId, freeResize: node.metadata?.freeResize, composerContent: node.metadata?.composerContent, ...result.metadata },
+    };
+}
+
 export function videoMetadata(video: UploadedFile): CanvasNodeMetadata {
     return { content: video.url, storageKey: video.storageKey, status: "success", naturalWidth: video.width, naturalHeight: video.height, bytes: video.bytes, mimeType: video.mimeType || "video/mp4", durationMs: video.durationMs };
 }

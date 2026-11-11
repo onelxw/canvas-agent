@@ -255,6 +255,7 @@ export default {
         openAgent: "Open local Codex panel",
         nodeTypes: { image: "Image", text: "Text", config: "Generation config", video: "Video", audio: "Audio", group: "Group" },
         toolbar: {
+            focus: "Center focus",
             select: "Select", pan: "Move", text: "Text", image: "Image", video: "Video", audio: "Audio", config: "Generation config", group: "Group", extensions: "Extension nodes", upload: "Upload assets", appearance: "Canvas appearance", clear: "Clear canvas",
             themeMode: "Theme", light: "Light", dark: "Dark", gridStyle: "Grid style", dots: "Dots", lines: "Lines", blank: "Blank", imageInfo: "Image info",
         },
@@ -273,6 +274,7 @@ export default {
         },
         videoFrames: { first: "Capture first frame", last: "Capture last frame", current: "Capture current frame", firstTitle: "{{name}} first frame", lastTitle: "{{name}} last frame", currentTitle: "{{name}} current frame", captured: "Image node created", failed: "Could not capture this frame. Try again." },
         sidePanel: {
+            viewList: "Switch to list", viewGrid: "Switch to thumbnails",
             canvas: "Canvas", assets: "Assets", prompts: "Prompt Library", resize: "Resize left panel", elements: "Canvas elements", select: "Select", searchNodes: "Search nodes", focusNode: "Focus node", preview: "Large preview", noNodes: "No nodes on this canvas", clearAll: "Clear all", selected: "{{count}} selected", exporting: "Exporting selected elements…", exportName: "canvas-elements-{{count}}", exported: "Exported {{count}} elements", exportFailed: "Export failed. Try again.",
             addingAssets: "Adding assets…", addedAssets: "Added {{count}} assets", mediaOnly: "Only image and video files are supported", addFailed: "Failed to add assets. Try again.", searchAssets: "Search assets", add: "Add", noAssets: "No assets", inserted: "Insert into canvas", removeAssetTitle: "Remove this asset?", remove: "Remove", removeAsset: "Remove asset", assetRemoved: "Asset removed",
             searchPrompts: "Search prompts", noPrompts: "No prompts", promptCopied: "Prompt copied", copyFailed: "Copy failed", loadFailedRetry: "Load failed. Click to retry.", noMatchingPrompts: "No matching prompts", sourceEmpty: "No prompts from this source", viewDetails: "View details",
@@ -488,6 +490,12 @@ export default {
             generation: "Generation preferences",
             canvasImageCount: "Default canvas image count",
             canvasImageCountDescription: "Used by new canvas image and configuration nodes. Individual nodes can override it.",
+            regenerateBehavior: "When generating on a node that already has content",
+            regenerateBehaviorOverwrite: "Regenerate in place (overwrite the node)",
+            regenerateBehaviorOverwriteDescription: "Replace the node's content and settings in place without creating a new node. Copy the node first to keep the old result.",
+            regenerateBehaviorNewNode: "Create a new node (original behavior)",
+            regenerateBehaviorNewNodeDescription: "Keep the current node and create a new one for the result. Good for variants or branches.",
+            autoFocusOnSelect: "Auto-center on select",
             audioVoice: "Default audio voice",
             audioFormat: "Default audio format",
             audioSpeed: "Default audio speed",

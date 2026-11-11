@@ -7,6 +7,9 @@ export const CANVAS_SIDE_PANEL_DEFAULT_WIDTH = 280;
 
 const WIDTH_KEY = "canvas-side-panel-width";
 const OPEN_KEY = "canvas-side-panel-open";
+const NODE_VIEW_KEY = "canvas-side-panel-node-view";
+
+export type CanvasNodeViewMode = "list" | "grid";
 
 function initialWidth() {
     if (typeof window === "undefined") return CANVAS_SIDE_PANEL_DEFAULT_WIDTH;
@@ -20,12 +23,21 @@ function initialOpen() {
     return localStorage.getItem(OPEN_KEY) !== "0";
 }
 
+function initialNodeView(): CanvasNodeViewMode {
+    if (typeof window === "undefined") return "list";
+    return localStorage.getItem(NODE_VIEW_KEY) === "grid" ? "grid" : "list";
+}
+
 type CanvasSidePanelStore = {
     width: number;
     panelOpen: boolean;
     panelMounted: boolean;
     panelClosing: boolean;
+    nodeViewMode: CanvasNodeViewMode;
+    hoverPreviewNodeId: string | null;
     setWidth: (width: number) => void;
+    setNodeViewMode: (mode: CanvasNodeViewMode) => void;
+    setHoverPreviewNodeId: (id: string | null) => void;
     openPanel: () => void;
     closePanel: () => void;
     togglePanel: () => void;
@@ -36,7 +48,14 @@ export const useCanvasSidePanelStore = create<CanvasSidePanelStore>((set, get) =
     panelOpen: initialOpen(),
     panelMounted: initialOpen(),
     panelClosing: false,
+    nodeViewMode: initialNodeView(),
+    hoverPreviewNodeId: null,
+    setHoverPreviewNodeId: (hoverPreviewNodeId) => set({ hoverPreviewNodeId }),
     setWidth: (width) => set({ width }),
+    setNodeViewMode: (mode) => {
+        if (typeof window !== "undefined") localStorage.setItem(NODE_VIEW_KEY, mode);
+        set({ nodeViewMode: mode });
+    },
     openPanel: () => {
         if (typeof window !== "undefined") localStorage.setItem(OPEN_KEY, "1");
         set({ panelOpen: true, panelMounted: true, panelClosing: false });
@@ -44,7 +63,7 @@ export const useCanvasSidePanelStore = create<CanvasSidePanelStore>((set, get) =
     closePanel: () => {
         if (!get().panelMounted || get().panelClosing) return;
         if (typeof window !== "undefined") localStorage.setItem(OPEN_KEY, "0");
-        set({ panelOpen: false, panelClosing: true });
+        set({ panelOpen: false, panelClosing: true, hoverPreviewNodeId: null });
         setTimeout(() => {
             if (get().panelClosing) set({ panelMounted: false, panelClosing: false });
         }, CANVAS_SIDE_PANEL_MOTION_MS);

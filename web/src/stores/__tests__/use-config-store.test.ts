@@ -3,6 +3,16 @@ import { describe, expect, it } from "vitest";
 import { createModelChannel, defaultConfig, FIXED_CHANNEL_BASE_URL, normalizeSingleChannelConfig, resolveModelForCapability, resolveModelRequestConfig, useConfigStore, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
 describe("fixed model channel", () => {
+    it("keeps the original generation and selection defaults", () => {
+        expect(defaultConfig.nodeRegenerateBehavior).toBe("new-node");
+        expect(defaultConfig.autoFocusOnSelect).toBe(false);
+        const config = normalizeSingleChannelConfig({ ...defaultConfig, nodeRegenerateBehavior: "overwrite", autoFocusOnSelect: true });
+        expect(config.nodeRegenerateBehavior).toBe("overwrite");
+        expect(config.autoFocusOnSelect).toBe(true);
+        expect(config.baseUrl).toBe(FIXED_CHANNEL_BASE_URL);
+        expect(config.channels).toHaveLength(1);
+    });
+
     it("uses gpt-5.6-terra as the default text model", () => {
         expect(defaultConfig.textModel).toBe("default::gpt-5.6-terra");
         expect(defaultConfig.channels[0].models).toContainEqual({ name: "gpt-5.6-terra", capability: "text" });
