@@ -7,3 +7,12 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    environment:
+      NEW_API_UPSTREAM: ${NEW_API_UPSTREAM:?Set NEW_API_UPSTREAM to the New API internal origin}
+    networks:
+      - new-api
+
+networks:
+  new-api:
+    external: true
+    name: ${NEW_API_NETWORK:-new-api_new-api-network}

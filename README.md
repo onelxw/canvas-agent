@@ -51,7 +51,7 @@
 - **兼容中转接口**：工具参数使用 JSON Schema Draft 7，避免布尔型 `exclusiveMinimum`、provider strict Schema、空工具参数及强制用量流选项造成“已计费但 upstream failure”。
 - **生成流程复用节点**：`canvas_create_generation_flow` 可通过 `promptNodeId` 直接复用已有文本节点，避免为“已有文本 → 生成配置”流程创建重复提示词节点；网页内置 Agent 与本地 Agent 行为一致。
 - **revision 冲突控制**：选区和视口变化不再增加 revision；同一批 Agent 连续写入可安全衔接自身产生的 revision，真实外部内容变化仍会拒绝旧版本写入。
-- **单渠道配置**：渠道收敛为一个内置渠道，接口固定为 `https://api.aiacg.de`，协议、API Key 与模型在渠道页直接编辑；默认聊天模型为 `gpt-5.6-terra`。
+- **单渠道配置**：渠道收敛为一个内置渠道，接口固定为当前站点同源地址，Docker Nginx 经内网转发到 New API；协议、API Key 与模型在渠道页直接编辑，默认聊天模型为 `gpt-5.6-terra`。
 - **MiniMax H3 视频适配**：删除原默认 `grok-imagine-video`，内置文生视频、图生视频、多图多音频三个模型；使用 `/v1/videos` JSON 协议、本地参考图自动上传、任务 ID 续查，并由模型名自动决定参考素材规则。
 - **工作台参数**：生图参数改为“质量、比例、生成张数”下拉框；视频工作台和画布视频节点使用清晰度、比例下拉框与时长滑杆，比例选项显示对应分辨率，不再提供自定义宽高、清晰度或首尾帧/全能参考模式选择。
 - **画布交互**：空白画布由双击左键创建节点改为单击右键创建，节点和连线原有右键菜单不变。
@@ -90,7 +90,7 @@
 ### 通常不应从上游覆盖的本分支定制
 
 - “无限次元”品牌名称、主题图标及导航精简。
-- 固定 `api.aiacg.de` 的单渠道策略和 `gpt-5.6-terra` 默认模型。
+- 固定同源地址的单渠道策略、Docker 内网 New API 转发和 `gpt-5.6-terra` 默认模型。
 - `onelxw/canvas-agent` 的仓库、GHCR、插件注册表地址及 Docker 外部端口 `3020`。
 - 已删除的推广、版本检查及外部跳转入口，除非产品需求明确恢复。
 
@@ -118,7 +118,7 @@ git diff --stat main...upstream/main
 ## 核心功能
 
 - 无限画布：多画布项目、节点拖拽缩放、连线、小地图、撤销重做、导入导出。
-- AI 创作：浏览器前台直连内置渠道地址，使用用户配置的协议、API Key 和模型，支持文生图、图生图、参考图编辑、文本问答、音频和视频生成。
+- AI 创作：浏览器请求画布站点同源接口，Docker Nginx 经内网转发到 New API，使用用户配置的协议、API Key 和模型，支持文生图、图生图、参考图编辑、文本问答、音频和视频生成。
 - 内置画布 Agent：直接使用渠道中的文本模型，通过受控工具读取和修改画布，无需安装 Codex、MCP 或本地服务。
 - 可选本地 Agent：仓库仍保留 Canvas Agent 与 Codex App 插件，供兼容旧流程和开发调试使用。
 - 插件系统：支持通过 URL 动态安装 / 启用 / 更新 / 卸载远程节点插件，并提供 TypeScript SDK 自行开发画布节点插件。
@@ -146,10 +146,13 @@ bun run dev
 ```bash
 git clone https://github.com/onelxw/canvas-agent.git
 cd canvas-agent
+# 先按 Docker 部署说明在根目录填写 .env 中的 NEW_API_UPSTREAM。
 docker compose up -d --build
 ```
 
 运行后默认端口为 3020，可访问 `http://localhost:3020`。
+
+需加入 New API 已有的 Docker 网络，详见 [Docker 部署](docs/content/docs/overview/docker.zh-CN.mdx)。只有 Nginx 到 New API 使用内网，浏览器到画布域名仍可能经过 Cloudflare；本地开发和其他托管环境需自行配置同源 API 代理。
 
 首次打开后进入配置页，在固定渠道中填写协议、`API Key` 和模型。
 

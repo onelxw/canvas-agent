@@ -68,7 +68,7 @@ function createPluginHttp(config: AiConfig, options?: RequestOptions): PluginHtt
 /** Raw request with no automatic auth header — the script controls method, url, headers, body entirely. */
 function createPluginRequest(config: AiConfig, options?: RequestOptions) {
     return async (requestConfig: AxiosRequestConfig & { url: string }) => {
-        const response = await axios.request({ ...requestConfig, url: pluginUrl(config, requestConfig.url), signal: options?.signal });
+        const response = await axios.request({ ...requestConfig, url: new URL(requestConfig.url, `${config.baseUrl.replace(/\/+$/, "")}/`).href, signal: options?.signal });
         return response.data;
     };
 }

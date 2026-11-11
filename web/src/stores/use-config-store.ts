@@ -69,7 +69,7 @@ export type ConfigTabKey = "channels" | "preferences" | "prompt-sources" | "webd
 
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
-export const FIXED_CHANNEL_BASE_URL = "https://api.aiacg.de";
+export const FIXED_CHANNEL_BASE_URL = window.location.origin;
 const LEGACY_DEFAULT_VIDEO_MODEL = "grok-imagine-video";
 const DEFAULT_VIDEO_MODEL = "minimax-h3-文生视频";
 const DEFAULT_VIDEO_MODELS: ChannelModel[] = [
@@ -421,7 +421,9 @@ function uniqueModelOptions(models: string[]) {
 
 export function buildApiUrl(baseUrl: string, path: string) {
     const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, "");
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    if (/^\/v1(?:beta)?(?:\/|\?|$)/.test(normalizedPath)) return new URL(normalizedPath, `${normalizedBaseUrl}/`).href;
     const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
     const apiBaseUrl = lowerBaseUrl.endsWith("/v1") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`;
-    return `${apiBaseUrl}${path}`;
+    return `${apiBaseUrl}${normalizedPath}`;
 }

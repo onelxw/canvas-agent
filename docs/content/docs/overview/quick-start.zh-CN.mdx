@@ -9,7 +9,7 @@ description: 用最少步骤把无限画布跑起来
 
 ## Vercel 部署
 
-在 Vercel 中导入仓库即可，根目录 `vercel.json` 会构建 `web/`。当前版本的 AI 请求由浏览器前台直连用户自己的 OpenAI 兼容地址，不需要额外配置服务端。
+根目录 `vercel.json` 会构建 `web/`。当前版本的 AI 请求固定使用站点同源 `/v1/`、`/v1beta/` 接口，Vercel 需另行配置对应代理；导入仓库不会自动建立到 New API 的 Docker 内网连接。本文推荐使用下面的 Docker 部署。
 
 ## 本地启动
 
@@ -27,22 +27,23 @@ bun run dev
 http://localhost:3000
 ```
 
+Vite 本地开发也需自行提供同源 `/v1/`、`/v1beta/` 代理，本次未自动配置开发代理。
+
 ## Docker 启动
 
-如果你需要基于当前源码构建镜像：
+先按 [Docker 部署](./docker) 在根目录配置 `NEW_API_UPSTREAM`，并确认 New API 已加入指定外部网络，然后构建当前源码：
 
 ```bash
-docker build -t infinite-canvas .
-docker run --rm -p 3020:3000 infinite-canvas
+docker compose up -d --build
 ```
 
 ## 首次使用建议
 
-- 先打开右上角配置弹窗，填入自己的 `Base URL`、`API Key` 和模型名。
+- 先打开右上角配置弹窗，填写协议、`API Key` 和模型名；渠道地址只读，固定为当前站点 origin。
 - 如果需要提示词仓库内容，打开 `/prompts` 会由浏览器前端直连拉取并缓存到 IndexedDB。
 - 如果需要跨设备同步画布、素材和生成记录，可在配置弹窗中填写 WebDAV。
 
 ## 说明
 
 - 当前画布项目和“我的素材”主要保存在浏览器本地，WebDAV 同步需要用户自行配置。
-- AI API Key 保存在浏览器本地，并由前端直接请求 OpenAI 兼容接口。
+- AI API Key 保存在浏览器本地，浏览器携带 Key 请求画布站点，再由 Nginx 转发到 New API；浏览器到画布域名仍可能经过 Cloudflare。

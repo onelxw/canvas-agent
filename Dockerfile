@@ -9,11 +9,11 @@ COPY CHANGELOG.md /app/CHANGELOG.md
 COPY web ./
 RUN bun run build
 
-# 运行镜像：只启动静态前端，AI 请求由浏览器前台直连用户自己的接口。
+# 运行镜像：Nginx 提供静态前端，并通过 Docker 内网转发同源 AI 请求。
 FROM nginx:1.27-alpine
 
 COPY --from=web-build /app/web/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/canvas.conf.template
 COPY web/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-config.sh
 # Windows checkouts may send CRLF scripts into the Docker build context. Normalize
 # the entrypoint inside the Linux image so /bin/sh can always execute it.

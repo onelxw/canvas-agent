@@ -5,11 +5,30 @@ description: Deploy Infinite Canvas with Docker Compose
 
 # Docker Deployment
 
+The main container runs Nginx and serves the Vite frontend. Same-origin `/v1/` and `/v1beta/` requests are forwarded to an independently deployed New API container. Compose does not create New API.
+
+## Configure the internal upstream
+
+The current deployment is confirmed to use container name and network DNS alias `new-api`, attached to `new-api_new-api-network`, with HTTP on internal port `3000`. Do not use the host binding `127.0.0.1:3000` or a container IP.
+
+Run `cp .env.example .env` in the canvas repository root. If `.env` already exists, merge these three variables without overwriting other settings. These values match the confirmed deployment; adjust them for other installations:
+
+```dotenv
+NEW_API_UPSTREAM=http://new-api:3000
+NEW_API_NETWORK=new-api_new-api-network
+APP_PORT=3020
+```
+
+`NEW_API_UPSTREAM` is required: an internal origin with scheme and explicit port, without a path, `/v1`, or trailing slash. It is used only by Nginx and never written to browser `/config.js`. `NEW_API_NETWORK` selects an existing external network and defaults to the confirmed `new-api_new-api-network`. `APP_PORT` defaults to host port `3020`; the app container listens on `3000`.
+
+Inspect names and aliases with `docker inspect new-api --format '{{.Name}} {{json .NetworkSettings.Networks}}'`. Missing or malformed upstream configuration prevents startup; a missing network causes Compose to fail. DNS or connection failures cause API errors, usually 502. The static homepage health check does not verify New API connectivity.
+
 ## Build and run the current source
 
 ```bash
 git clone https://github.com/onelxw/canvas-agent.git
 cd canvas-agent
+# Fill in the root .env as described above first.
 docker compose up -d --build
 ```
 
@@ -18,7 +37,9 @@ Open `http://localhost:3020`.
 ## Use the published image
 
 ```bash
-docker run -d --name infinite-canvas -p 3020:3000 ghcr.io/onelxw/canvas-agent:latest
+docker run -d --name infinite-canvas -p 3020:3000 \
+  --network new-api_new-api-network --env-file .env \
+  ghcr.io/onelxw/canvas-agent:latest
 ```
 
 ## Documentation image
@@ -37,11 +58,23 @@ cd docs
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-The main application container only runs Next.js. Canvases, My Assets, generation history, and API keys are stored in the browser by default, while prompt repositories are fetched directly by the frontend. No persistent data volume is required for this data.
+Use a published image that includes this proxy change. Canvases, My Assets, generation history, and API keys remain in the browser. The browser sends its configured key to the canvas origin and Nginx forwards it; no shared server-side key is provided. Prompt repositories, existing image/audio upload services, and external output URLs returned by providers remain direct browser requests. No persistent volume is required for this business data.
+
+## Routing and limits
+
+Browser → canvas domain (possibly through Cloudflare) → canvas Nginx → New API over Docker networking. Only the Nginx-to-New-API segment uses the internal network. Browser-to-canvas traffic can still pass through Cloudflare and remains subject to its limits.
+
+- The single provider is fixed to the current site origin, without `/v1`, including initialization, refresh, config import, and legacy URL parameters. Opening another deployment uses that deployment's origin.
+- Both API prefixes preserve the full path, query, authentication headers, and body, with SSE and multipart support. Static assets, SPA fallback, and uncached `/config.js` keep their existing behavior.
+- As approved, API requests use `client_max_body_size 0` (no canvas Nginx request-body limit) and `proxy_read_timeout 600s` (idle time between upstream reads, not total request duration). Cloudflare, outer proxies, and New API limits still apply. Read timeout usually returns 504 before headers, or interrupts an already-started stream. Connection, send, and upload idle timeouts remain at Nginx defaults. Existing frontend image timeout (10 minutes), video polling (about 20 minutes), and other limits remain unchanged.
+- The existing entrypoint renders the Nginx configuration before startup. After changing upstream variables, run `docker compose up -d --force-recreate app`; no frontend rebuild is needed for an upstream address change. Docker DNS resolves the upstream name after container replacement.
+- Local Vite, Vercel, and other static hosting require equivalent same-origin API proxies. This change implements Docker Nginx only. Static-resource paths and live provider behavior still require deployment acceptance.
 
 ## Optional analytics
 
 No analytics are enabled by default. A deployment can enable GA4, Baidu Analytics, or both at runtime:
+
+Append analytics variables to the existing service environment, retaining its upstream and network configuration. For `docker run`, keep `--network new-api_new-api-network --env-file .env` as shown above.
 
 | Variable | Description |
 | --- | --- |
@@ -55,6 +88,7 @@ services:
     ports:
       - "3020:3000"
     environment:
+      NEW_API_UPSTREAM: ${NEW_API_UPSTREAM:?Set the internal upstream origin}
       ANALYTICS_GA4_ID: G-XXXXXXXXXX
       ANALYTICS_BAIDU_ID: e8263761cc5c32f5f7a855b8203b965a
 ```

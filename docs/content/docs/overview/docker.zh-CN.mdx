@@ -5,13 +5,34 @@ description: 使用 Docker Compose 部署无限画布
 
 # Docker 部署
 
-如果你希望在自己的机器或服务器上运行项目，可以直接使用 Docker Compose。
+主应用由 Nginx 提供 Vite 静态前端，并将同源 `/v1/`、`/v1beta/` 请求转发到已单独部署的 New API。Compose 不创建 New API 服务。
+
+## 配置 New API 内网连接
+
+当前部署已确认：New API 的容器名和网络 DNS 别名均为 `new-api`，已加入 `new-api_new-api-network`，内部使用 HTTP、监听 `3000`。不要使用宿主机映射的 `127.0.0.1:3000` 或容器 IP 作为上游。
+
+在画布仓库根目录执行 `cp .env.example .env`（已有 `.env` 时只合并下面三个变量，不要覆盖其他配置）。当前部署使用以下值，其他部署按实际内网配置调整：
+
+```dotenv
+NEW_API_UPSTREAM=http://new-api:3000
+NEW_API_NETWORK=new-api_new-api-network
+APP_PORT=3020
+```
+
+| 变量 | 用途 |
+| --- | --- |
+| `NEW_API_UPSTREAM` | 必填，完整内网 origin，必须带协议和端口，不带路径、`/v1` 或尾斜杠；仅用于容器内 Nginx，不写入 `/config.js` |
+| `NEW_API_NETWORK` | 已有外部 Docker 网络名，默认 `new-api_new-api-network`；须与 New API 共用，Compose 不负责创建 |
+| `APP_PORT` | 宿主机端口，默认 `3020`；容器内部仍为 `3000` |
+
+可用 `docker inspect new-api --format '{{.Name}} {{json .NetworkSettings.Networks}}'` 查看名称、网络与别名。未配置或上游格式错误时启动会报错；网络不存在时 Compose 会失败。DNS 无法解析、无法连接 New API 时 API 请求会失败（通常为 502），静态主页健康检查不验证上游可用性。
 
 ## 构建并运行当前源码
 
 ```bash
 git clone https://github.com/onelxw/canvas-agent.git
 cd canvas-agent
+# 先按上节填写根目录 .env。
 docker compose up -d --build
 ```
 
@@ -23,10 +44,12 @@ http://localhost:3020
 
 ## 使用发布镜像
 
-发布版本镜像可直接运行：
+使用包含本次代理改动的发布镜像时，仍须提供内网环境变量并加入相同网络：
 
 ```bash
-docker run -d --name infinite-canvas -p 3020:3000 ghcr.io/onelxw/canvas-agent:latest
+docker run -d --name infinite-canvas -p 3020:3000 \
+  --network new-api_new-api-network --env-file .env \
+  ghcr.io/onelxw/canvas-agent:latest
 ```
 
 ## 文档站镜像
@@ -49,11 +72,22 @@ docker compose -f docker-compose.local.yml up -d --build
 
 ## 数据说明
 
-当前主应用镜像只启动 Next.js。画布、我的素材、生成记录和 AI API Key 默认保存在浏览器本地；第三方提示词由浏览器前端直连拉取，不需要额外挂载数据目录。
+当前主应用镜像运行 Nginx。画布、我的素材、生成记录和 AI API Key 默认保存在浏览器本地；浏览器携带用户配置的 Key 请求画布站点，再由 Nginx 转发，服务端不提供统一 Key。第三方提示词、现有图床/音频上传服务及上游返回的外部成品 URL 仍由浏览器直连，不需要额外挂载业务数据目录。
+
+## 请求链路与限制
+
+链路为：浏览器 → 画布域名（可能经过 Cloudflare）→ 画布容器 Nginx → New API 容器。只有 Nginx 到 New API 这一段使用 Docker 内网；浏览器到画布域名的流量仍可能经过 Cloudflare，其请求大小、超时等限制仍然生效。
+
+- 渠道保持单渠道，地址固定为当前站点 origin，不含 `/v1`；初始化、刷新恢复、配置导入及旧 URL 参数均不能改成其他地址。部署到其他域名后会使用新站点 origin。
+- `/v1/`、`/v1beta/` 保留完整路径、查询参数、鉴权头和请求体，支持 SSE 与 multipart 上传；其他页面、静态资源、SPA 路由和 `/config.js` 的禁止缓存行为保持不变。
+- 经确认，仅 API 代理设置 `client_max_body_size 0`，画布 Nginx 不再限制请求体大小；Cloudflare、外层代理和 New API 自身限制仍有效。
+- 经确认，仅 API 代理设置 `proxy_read_timeout 600s`，指上游两次读取之间的空闲时间，并非整次请求总时长。超时且尚未返回响应头时通常为 504；流式响应开始后则中断。连接、发送和上传空闲超时保留 Nginx 默认值；前端生图 10 分钟、视频轮询约 20 分钟和其他既有限制保持不变。
+- 启动脚本生成 Nginx 配置后才启动服务；调整上游环境变量后执行 `docker compose up -d --force-recreate app`，无需为上游地址变化重新构建前端。Docker DNS 用于解析上游名称，容器重建后无需写死 IP。
+- 本地 Vite、Vercel 或其他静态托管也必须提供同源 `/v1/`、`/v1beta/` 代理；本次仅实现 Docker Nginx 部署，不会自动为其他环境配置代理。Docker 静态资源路径与真实接口仍待部署验收。
 
 ## 统计分析（可选）
 
-项目**默认不接入任何统计**：不设置下列环境变量时，页面不会加载任何统计脚本，也不会发送任何外部请求。你在自己的部署上想查看流量时，设置对应环境变量即可，无需修改代码或重新构建镜像——镜像启动时会据此生成运行期配置。
+项目**默认不接入任何统计**：不设置下列环境变量时，页面不会加载统计脚本或发送统计请求。你在自己的部署上想查看流量时，设置对应环境变量即可，无需修改代码或重新构建镜像——镜像启动时会据此生成运行期配置。
 
 统计按「每家一个独立变量」配置：**填了谁就启用谁，可同时启用多家**（例如 GA4 + 百度一起开）。仅支持 GA4 与百度，两者都只接受 ID，脚本地址由代码固定拼接，不接受任意脚本地址或内联 JS。
 
@@ -62,7 +96,7 @@ docker compose -f docker-compose.local.yml up -d --build
 | `ANALYTICS_GA4_ID` | Google Analytics 4 衡量 ID（`G-XXXX`） |
 | `ANALYTICS_BAIDU_ID` | 百度统计站点 ID（`hm.js?` 后面那串 hash） |
 
-在 `docker-compose.yml` 的 `environment` 中配置（文件内已附注释示例），下例同时启用 GA4 与百度：
+在现有 `docker-compose.yml` 的 `environment` 中追加配置，保留 `NEW_API_UPSTREAM` 和网络设置，下例同时启用 GA4 与百度：
 
 ```yaml
 services:
@@ -71,6 +105,7 @@ services:
     ports:
       - "3020:3000"
     environment:
+      NEW_API_UPSTREAM: ${NEW_API_UPSTREAM:?请填写内网上游地址}
       ANALYTICS_GA4_ID: G-XXXXXXXXXX
       ANALYTICS_BAIDU_ID: e8263761cc5c32f5f7a855b8203b965a
 ```
@@ -79,6 +114,7 @@ services:
 
 ```bash
 docker run -d -p 3020:3000 \
+  --network new-api_new-api-network --env-file .env \
   -e ANALYTICS_GA4_ID=G-XXXXXXXXXX \
   -e ANALYTICS_BAIDU_ID=e8263761cc5c32f5f7a855b8203b965a \
   ghcr.io/onelxw/canvas-agent:latest

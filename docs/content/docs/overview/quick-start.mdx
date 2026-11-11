@@ -9,7 +9,7 @@ To try the project, deploy or start the `web/` frontend.
 
 ## Deploy with Vercel
 
-Import the repository into Vercel. The root `vercel.json` builds `web/`. AI requests are sent directly from the browser to your OpenAI-compatible endpoint, so no additional application server is required.
+The root `vercel.json` builds `web/`. AI requests now use same-origin `/v1/` and `/v1beta/` endpoints. Vercel requires separately configured proxies; importing this repository does not establish access to the New API Docker network. Docker deployment is recommended below.
 
 ## Run locally
 
@@ -22,17 +22,20 @@ bun run dev
 
 Open `http://localhost:3000`.
 
+Local Vite development also requires equivalent same-origin API proxies; this change does not configure a development proxy.
+
 ## Run with Docker
 
+Follow [Docker Deployment](./docker) to configure the root `NEW_API_UPSTREAM` environment variable and confirm New API is attached to the external network first.
+
 ```bash
-docker build -t infinite-canvas .
-docker run --rm -p 3020:3000 infinite-canvas
+docker compose up -d --build
 ```
 
 ## First-time setup
 
-- Open Settings and enter your `Base URL`, `API Key`, and model names.
+- Open Settings and enter the API protocol, `API Key`, and model names. The provider URL is read-only and fixed to the current site origin.
 - Open `/prompts` to fetch prompt repositories directly from the browser and cache them in IndexedDB.
 - Configure WebDAV if you want to synchronize canvases, assets, and generation history across devices.
 
-Canvas projects and My Assets are primarily stored in the browser. The API key is also stored locally and used by the browser to call OpenAI-compatible endpoints directly.
+Canvas projects, My Assets, and the API key remain in the browser. Requests carry that key to the canvas origin, then Nginx forwards them to New API. Browser-to-canvas traffic may still pass through Cloudflare.
