@@ -391,6 +391,7 @@ export default {
             contentEstimate: "按仓库内容估算",
             siteUsageHint: "包含 IndexedDB 等站点数据",
             quotaHint: "由浏览器动态分配",
+            quotaUnavailable: "当前浏览器不提供配额估算",
             quotaProgress: "站点配额使用率",
             mainDatabase: "无限次元主数据",
             records: "{{count}} 条",

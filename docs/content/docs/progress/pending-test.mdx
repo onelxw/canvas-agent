@@ -5,6 +5,16 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+## Upstream v0.20.0 selective fixes
+
+- Missing models must remain selected and block generation, retries, and video task recovery instead of silently falling back. Saving settings and refreshing must preserve an unavailable selection; rotating the key on the same channel must still work. New nodes and explicit capability changes should continue using the matching default model.
+- After project load or resizing the browser/side panels, element focus, reset, and centered zoom should use the actual canvas dimensions without overwriting the saved viewport. Focus should account for open node panels, hover toolbars, and the bottom dock.
+- Duplicating or pasting nodes should retain inbound references. Copied sources should map to their copies; external sources should remain connected while they still exist. Deleted sources must not create dangling connections, and undo/redo should restore nodes and connections together.
+- Reference selection should pin its hint to the viewport top center and hide the hover toolbar. Node prompt panels and both creation menus should keep their screen size and anchor while zooming. Preserve right-click creation, drag-time toolbar hiding, and both themes.
+- Compact creation menus and the extension menu should follow the selected language while preserving plugin-defined names.
+- Without a working Storage estimate API, HTTP deployments should still show IndexedDB usage, mark quota as unavailable, and hide the percentage. Supported browsers should retain full quota statistics.
+- Added regression cases for missing selections, fixed-channel normalization, focus geometry, and storage fallback; tests, syntax checks, and builds have not been run under the project instructions.
+
 ## 视频网关 JSON 协议（待用户验证）
 
 - 模型分流：配置自定义脚本时仍优先执行；无脚本时去除内部渠道前缀，只精确匹配三个 MiniMax H3 模型，其余模型一律走新协议，包括 apiFormat 为 Gemini 的模型。Agent 的画布生成工具和工作台命令沿用相同入口，不自行选择协议。

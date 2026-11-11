@@ -391,6 +391,7 @@ export default {
             contentEstimate: "Estimated from stored content",
             siteUsageHint: "Includes IndexedDB and other site data",
             quotaHint: "Allocated dynamically by the browser",
+            quotaUnavailable: "Storage quota estimate is unavailable in this browser",
             quotaProgress: "Site quota usage",
             mainDatabase: "Infinite Dimension data",
             records: "{{count}} records",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createModelChannel, defaultConfig, FIXED_CHANNEL_BASE_URL, normalizeSingleChannelConfig, resolveModelRequestConfig } from "@/stores/use-config-store";
+import { createModelChannel, defaultConfig, FIXED_CHANNEL_BASE_URL, normalizeSingleChannelConfig, resolveModelForCapability, resolveModelRequestConfig, useConfigStore, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
 describe("fixed model channel", () => {
     it("uses gpt-5.6-terra as the default text model", () => {
@@ -39,5 +39,55 @@ describe("fixed model channel", () => {
         expect(config.channels[0].apiKey).toBe("first-key");
         expect(config.channels[0].baseUrl).toBe(FIXED_CHANNEL_BASE_URL);
         expect(resolveModelRequestConfig(config, config.textModel).baseUrl).toBe(FIXED_CHANNEL_BASE_URL);
+    });
+});
+
+describe("unavailable model selections", () => {
+    const config: AiConfig = {
+        ...defaultConfig,
+        imageModel: "default::image-a",
+        videoModel: "default::video-a",
+        channels: [createModelChannel({
+            id: "default",
+            apiKey: "test-key",
+            models: [{ name: "image-a", capability: "image" }, { name: "video-a", capability: "video" }],
+        })],
+    };
+    const ready = useConfigStore.getState().isAiConfigReady;
+
+    it("preserves missing selections for every capability and blocks requests", () => {
+        for (const capability of ["image", "video", "text", "audio"] as ModelCapability[]) {
+            for (const model of [`default::deleted-${capability}`, `removed::${capability}`, `unknown-${capability}`]) {
+                expect(resolveModelForCapability(config, model, capability)).toBe(model);
+                expect(ready(config, model)).toBe(false);
+            }
+        }
+    });
+
+    it("does not substitute the default for the same model name on a removed channel", () => {
+        const model = "removed::video-a";
+        expect(resolveModelForCapability(config, model, "video")).toBe(model);
+        expect(ready(config, model)).toBe(false);
+    });
+
+    it("preserves unavailable defaults through single-channel normalization", () => {
+        const normalized = normalizeSingleChannelConfig({ ...config, imageModel: "default::deleted-image", textModel: "removed::text-a" });
+        expect(normalized.imageModel).toBe("default::deleted-image");
+        expect(normalized.textModel).toBe("removed::text-a");
+        expect(normalized.channels).toHaveLength(1);
+        expect(normalized.baseUrl).toBe(FIXED_CHANNEL_BASE_URL);
+        expect(resolveModelForCapability(normalized, undefined, "image")).toBe("default::deleted-image");
+        expect(ready(normalized, normalized.imageModel)).toBe(false);
+    });
+
+    it("uses the configured default for new nodes and when switching capability", () => {
+        expect(resolveModelForCapability(config, undefined, "video")).toBe("default::video-a");
+        expect(resolveModelForCapability(config, "default::image-a", "video")).toBe("default::video-a");
+        expect(ready(config, "default::video-a")).toBe(true);
+    });
+
+    it("allows key rotation on the same channel but rejects an empty key", () => {
+        expect(ready({ ...config, channels: [{ ...config.channels[0], apiKey: "rotated-key" }] }, config.videoModel)).toBe(true);
+        expect(ready({ ...config, channels: [{ ...config.channels[0], apiKey: "" }] }, config.videoModel)).toBe(false);
     });
 });

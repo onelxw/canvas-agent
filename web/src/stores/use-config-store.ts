@@ -175,8 +175,13 @@ export function modelMatchesCapability(config: AiConfig, value: string, capabili
 export function resolveModelForCapability(config: AiConfig, currentModel: string | undefined, capability: ModelCapability) {
     const defaultModel = capability === "image" ? config.imageModel : capability === "video" ? config.videoModel : capability === "audio" ? config.audioModel : config.textModel;
     const fallbackModel = capability === "image" ? defaultConfig.imageModel : capability === "video" ? defaultConfig.videoModel : capability === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
-    if (currentModel && modelMatchesCapability(config, currentModel, capability)) return currentModel;
-    if (defaultModel && modelMatchesCapability(config, defaultModel, capability)) return defaultModel;
+    for (const model of [currentModel, defaultModel]) {
+        if (!model) continue;
+        const configuredCapability = modelCapabilityOf(config, model);
+        // Keep unavailable selections visible so the readiness check blocks the
+        // request. Only a known capability switch may choose another model.
+        if (!configuredCapability || configuredCapability === capability) return model;
+    }
     return fallbackModel;
 }
 
@@ -191,8 +196,8 @@ export function resolveModelScript(config: AiConfig, value: string) {
 }
 
 function isAiConfigReady(config: AiConfig, model: string) {
-    const channel = resolveModelChannel(config, model);
-    return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
+    const match = findChannelModel(config, model);
+    return Boolean(match && match.channel.baseUrl.trim() && match.channel.apiKey.trim());
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -382,7 +387,8 @@ export function normalizeSingleChannelConfig(config: AiConfig): AiConfig {
     const models = modelOptionsFromChannels(channels);
     const next = { ...config, channelMode: "local" as const, baseUrl: FIXED_CHANNEL_BASE_URL, apiKey: channels[0].apiKey, apiFormat: channels[0].apiFormat, channels, models };
     const pick = (value: string | undefined, capability: ModelCapability) => {
-        const normalized = normalizeModelOptionValue(value, channels);
+        const normalized = normalizeModelOptionValue(value, channels) || value?.trim() || "";
+        if (normalized && !modelCapabilityOf(next, normalized)) return normalized;
         const options = selectableModelsByCapability(next, capability);
         return options.includes(normalized) ? normalized : options[0] || "";
     };

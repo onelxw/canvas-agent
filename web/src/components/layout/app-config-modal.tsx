@@ -16,9 +16,7 @@ import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from 
 import {
     createModelChannel,
     FIXED_CHANNEL_BASE_URL,
-    normalizeModelOptionValue,
     normalizeSingleChannelConfig,
-    selectableModelsByCapability,
     useConfigStore,
     type AiConfig,
     type ConfigTabKey,
@@ -328,20 +326,7 @@ export function AppConfigModal() {
 }
 
 function withChannels(config: AiConfig, channels: ModelChannel[]): AiConfig {
-    const next = normalizeSingleChannelConfig({ ...config, channels: channels.slice(0, 1) });
-    return {
-        ...next,
-        imageModel: pickDefaultModel(next, "image", config.imageModel),
-        videoModel: pickDefaultModel(next, "video", config.videoModel),
-        textModel: pickDefaultModel(next, "text", config.textModel),
-        audioModel: pickDefaultModel(next, "audio", config.audioModel),
-    };
-}
-
-function pickDefaultModel(config: AiConfig, capability: ModelCapability, current: string) {
-    const options = selectableModelsByCapability(config, capability);
-    const normalized = normalizeModelOptionValue(current, config.channels);
-    return options.includes(normalized) ? normalized : options[0] || "";
+    return normalizeSingleChannelConfig({ ...config, channels: channels.slice(0, 1) });
 }
 
 function normalizeImageCount(value: string) {
